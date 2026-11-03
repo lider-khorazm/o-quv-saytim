@@ -1,0 +1,9 @@
+{
+  "devmaster_teachers_v3": { "value": [], "version": 99 },
+  "devmaster_students_v2": { "value": [], "version": 99 },
+  "devmaster_generated_tests_v2": { "value": [], "version": 99 },
+  "devmaster_test_submissions_v2": { "value": [], "version": 99 },
+  "devmaster_expel_requests_v2": { "value": [], "version": 99 },
+  "devmaster_notifications_v2": { "value": [], "version": 99 },
+  "devmaster_group_messages_v2": { "value": [], "version": 99 }
+}

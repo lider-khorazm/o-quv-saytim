@@ -1,0 +1,320 @@
+import { Teacher, Student, Lesson, TestQuestion, OwnerProfile } from '../types';
+
+export const OWNER_PROFILE: OwnerProfile = {
+  name: 'Olimjon Alimjonov',
+  username: 'lord_o1',
+  email: 'olimjonalimjonov12@gmail.com',
+  roleTitle: 'Platform Asoschisi & Bosh Arxitektor (Owner)',
+  avatar: '',
+  bio: "Men Alimjonov Olimjon, ya'ni sayt egasi va frontend dasturchisi. Men hozirda 14 yoshdaman. Bu saytni HTMLni o'rganayotganlarga va qiziquvchilarga yasaganman. Bu saytdan pul topmayman yoki pullamayman, bu faqat yaxshilik uchun xizmat qiladi.",
+  interests: [
+    '☕ Qahva ichishni yaxshi ko\'radi',
+    '💻 Frontend (React, TypeScript, CSS UI)',
+    '🐍 Python & Algoritmlar',
+    '🎌 Anime & Manga San\'ati',
+    '⚡ Toza va Tezkor Arxitektura',
+  ],
+  quote: "Kod yozish — bu san'at, qahva esa uning yoqilg'isi!",
+};
+
+export const OWNER_CREDENTIALS = {
+  username: 'lord_o1',
+  email: 'olimjonalimjonov12@gmail.com',
+  password: 'lord_2012',
+};
+
+// Boshlang'ich ustozlar o'rniga AI Ustoz Temur xizmat ko'rsatadi
+export const INITIAL_TEACHERS: Teacher[] = [];
+
+// Yangi ro'yxatdan o'tgan talabalar
+export const INITIAL_STUDENTS: Student[] = [];
+
+import { ALL_250_LESSONS } from './allCurriculum250';
+
+export const LESSONS: Lesson[] = ALL_250_LESSONS;
+
+// Savollar banki (Test Generator uchun)
+export const QUESTION_BANK: Record<'html' | 'css' | 'javascript', TestQuestion[]> = {
+  html: [
+    {
+      id: 'q-h1',
+      question: "HTML da eng katta o'lchamdagi sarlavha qaysi teg orqali yaratiladi?",
+      options: ['<heading>', '<h6>', '<h1>', '<head>'],
+      correctAnswerIndex: 2,
+      explanation: "<h1> tegi HTML dagi 1-darajali eng muhim va eng katta sarlavhadir.",
+      points: 10,
+    },
+    {
+      id: 'q-h2',
+      question: "Qaysi HTML tegi boshqa veb-sahifaga havola (link) yaratish uchun ishlatiladi?",
+      options: ['<link>', '<a>', '<href>', '<url>'],
+      correctAnswerIndex: 1,
+      explanation: "<a> (anchor) tegi href atributi bilan giperhavolalar yaratadi.",
+      points: 10,
+    },
+    {
+      id: 'q-h3',
+      question: "HTML5 da sahifaning yuqori qismini semantik belgilash uchun qaysi teg ishlatiladi?",
+      options: ['<top>', '<header>', '<head>', '<navbar>'],
+      correctAnswerIndex: 1,
+      explanation: "<header> tegi semantik jihatdan sahifa yoki bo'lim kirish qismini bildiradi.",
+      points: 10,
+    },
+    {
+      id: 'q-h4',
+      question: "Rasm yuklanmay qolganda uning o'rnida chiquvchi tavsif matni qaysi atributda beriladi?",
+      options: ['title', 'src', 'alt', 'desc'],
+      correctAnswerIndex: 2,
+      explanation: "alt (alternative text) atributi rasm ko'rinmaganda yoki ko'zi ojizlar ekranni o'qiganda o'qiladi.",
+      points: 10,
+    },
+    {
+      id: 'q-h5',
+      question: "Tartiblangan (raqamlangan) ro'yxat qaysi teg bilan boshlanadi?",
+      options: ['<ul>', '<ol>', '<li>', '<list>'],
+      correctAnswerIndex: 1,
+      explanation: "<ol> — Ordered List (tartiblangan ro'yxat), <ul> esa tartibsiz ro'yxat.",
+      points: 10,
+    },
+    {
+      id: 'q-h6',
+      question: "Matn kiritish maydonida foydalanuvchi biror narsa yozishi shartligini qaysi atribut bildiradi?",
+      options: ['important', 'must-fill', 'required', 'validate'],
+      correctAnswerIndex: 2,
+      explanation: "required atributi forma jo'natilishidan oldin maydon to'ldirilishi shartligini tekshiradi.",
+      points: 10,
+    },
+    {
+      id: 'q-h7',
+      question: "Yangi qatorga tushirish (line break) uchun qaysi toq teg ishlatiladi?",
+      options: ['<lb>', '<break>', '<br>', '<hr>'],
+      correctAnswerIndex: 2,
+      explanation: "<br> tegi matnni keyingi qatorga ko'chiradi va yopilish tegi talab qilmaydi.",
+      points: 10,
+    },
+    {
+      id: 'q-h8',
+      question: "HTML jadvalida ma'lumotlar katakchasi qaysi teg bilan belgilanadi?",
+      options: ['<tr>', '<th>', '<td>', '<tc>'],
+      correctAnswerIndex: 2,
+      explanation: "<td> (table data) oddiy katakcha ma'lumotini anglatadi.",
+      points: 10,
+    },
+  ],
+  css: [
+    {
+      id: 'q-c1',
+      question: "CSS da class selektori qanday belgi bilan boshlanadi?",
+      options: ['# (panjara)', '. (nuqta)', '$ (dollar)', '@ (kuchukcha)'],
+      correctAnswerIndex: 1,
+      explanation: "Class nomi oldiga nuqta qo'yiladi (masalan, .button). ID oldiga esa # qo'yiladi.",
+      points: 10,
+    },
+    {
+      id: 'q-c2',
+      question: "Flexboxda elementlarni asosiy o'q bo'yicha markazga qo'yish uchun qaysi xususiyat beriladi?",
+      options: ['align-items: center;', 'justify-content: center;', 'text-align: center;', 'margin: auto;'],
+      correctAnswerIndex: 1,
+      explanation: "justify-content asosiy o'q (main axis) bo'yicha elementlarni boshqaradi.",
+      points: 10,
+    },
+    {
+      id: 'q-c3',
+      question: "Elementning ichki masofasi (chegara bilan kontent orasidagi) nima deyiladi?",
+      options: ['margin', 'border', 'padding', 'spacing'],
+      correctAnswerIndex: 2,
+      explanation: "Padding — ichki masofa, Margin — tashqi qo'shni elementlar orasidagi masofa.",
+      points: 10,
+    },
+    {
+      id: 'q-c4',
+      question: "Elementni butun ekran o'lchamiga nisbatan harakatsiz (scroll qilganda ham joyida turadigan) qilish uchun qaysi position beriladi?",
+      options: ['position: relative;', 'position: absolute;', 'position: fixed;', 'position: static;'],
+      correctAnswerIndex: 2,
+      explanation: "position: fixed butun viewport oynasiga nisbatan qotirilgan joylashuvni hosil qiladi.",
+      points: 10,
+    },
+    {
+      id: 'q-c5',
+      question: "Mobil moslashuvchanlik (Responsive) yaratishda qaysi CSS qoidasi ishlatiladi?",
+      options: ['@responsive', '@media', '@screen', '@viewport'],
+      correctAnswerIndex: 1,
+      explanation: "@media screen and (max-width: ...) orqali ekran kengligiga qarab stillar beriladi.",
+      points: 10,
+    },
+    {
+      id: 'q-c6',
+      question: "CSS Gridda ustunlarni 3 ta teng qismga bo'lishning to'g'ri usuli qaysi?",
+      options: ['grid-columns: 33% 33% 33%;', 'grid-template-columns: repeat(3, 1fr);', 'display: grid(3);', 'grid-width: 3fr;'],
+      correctAnswerIndex: 1,
+      explanation: "grid-template-columns: repeat(3, 1fr); 3 ta teng fraksiyali ustun ochadi.",
+      points: 10,
+    },
+    {
+      id: 'q-c7',
+      question: "Elementning shaffoflik darajasi qaysi xususiyat orqali o'rnatiladi?",
+      options: ['visibility', 'transparent', 'opacity', 'filter'],
+      correctAnswerIndex: 2,
+      explanation: "opacity 0 dan 1 gacha bo'lgan qiymatlarni qabul qilib shaffoflikni belgilaydi.",
+      points: 10,
+    },
+    {
+      id: 'q-c8',
+      question: "Element ustiga sichqoncha kelgandagi holatini ifodalovchi psevdo-klass qaysi?",
+      options: [':focus', ':active', ':hover', ':visited'],
+      correctAnswerIndex: 2,
+      explanation: ":hover sichqoncha kursor element ustiga borganda faollashadi.",
+      points: 10,
+    },
+  ],
+  javascript: [
+    {
+      id: 'q-j1',
+      question: "JavaScriptda qayta qiymat berib bo'lmaydigan (o'zgarmas) o'zgaruvchi qaysi kalit so'z bilan e'lon qilinadi?",
+      options: ['let', 'var', 'const', 'immutable'],
+      correctAnswerIndex: 2,
+      explanation: "const o'zgaruvchisiga bir marta qiymat beriladi va uni qayta o'zgartirib bo'lmaydi.",
+      points: 10,
+    },
+    {
+      id: 'q-j2',
+      question: 'Quyidagi ifodaning natijasi nima bo\'ladi: typeof ("42" + 8)?',
+      options: ['"number"', '"string"', '"NaN"', '"undefined"'],
+      correctAnswerIndex: 1,
+      explanation: '"42" + 8 amali satrli qo\'shish (concatenation) bo\'lib "428" satrini hosil qiladi, uning typeof qiymati "string".',
+      points: 10,
+    },
+    {
+      id: 'q-j3',
+      question: "Massivdagi har bir elementni o'zgartirib yangi massiv qaytaruvchi metod qaysi?",
+      options: ['forEach()', 'filter()', 'map()', 'reduce()'],
+      correctAnswerIndex: 2,
+      explanation: "map() massivdagi har bir elementni transformatsiya qilib yangi massiv hosil qiladi.",
+      points: 10,
+    },
+    {
+      id: 'q-j4',
+      question: "Qat'iy tenglik operatori (turi va qiymatini bir vaqtda tekshiruvchi) qaysi?",
+      options: ['==', '===', '=', '!==='],
+      correctAnswerIndex: 1,
+      explanation: "=== operatori type coercion qilmasdan ham turini, ham qiymatini qat'iy tekshiradi.",
+      points: 10,
+    },
+    {
+      id: 'q-j5',
+      question: "HTML hujjatidan bitta elementni CSS selektori orqali topish uchun eng mos metod qaysi?",
+      options: ['document.getElementById', 'document.querySelector', 'document.getElementByTag', 'document.find'],
+      correctAnswerIndex: 1,
+      explanation: "document.querySelector() istalgan CSS selektori bo'yicha birinchi mos kelgan elementni topadi.",
+      points: 10,
+    },
+    {
+      id: 'q-j6',
+      question: "JavaScriptda qaysi qiymat \"falsy\" hisoblanmaydi?",
+      options: ['0', '"" (bo\'sh satr)', '"0" (ichida nol bor satr)', 'undefined'],
+      correctAnswerIndex: 2,
+      explanation: '"0" bo\'sh bo\'lmagan satr bo\'lgani uchun u "truthy" hisoblanadi.',
+      points: 10,
+    },
+    {
+      id: 'q-j7',
+      question: "Asinxron kodlarni boshqarishda Promise natijasini qulay kutish uchun qaysi kalit so'zlar juftligi ishlatiladi?",
+      options: ['try / catch', 'async / await', 'defer / delay', 'sync / yield'],
+      correctAnswerIndex: 1,
+      explanation: "async / await sintaksisi asinxron Promiselarni xuddi sinxrondek toza o'qish imkonini beradi.",
+      points: 10,
+    },
+    {
+      id: 'q-j8',
+      question: "Qaysi metod massivdagi faqat shartni qanoatlantirgan elementlarni qoldiradi?",
+      options: ['slice()', 'filter()', 'splice()', 'sort()'],
+      correctAnswerIndex: 1,
+      explanation: "filter() metodi berilgan callback funksiya true qaytargan elementlardan yangi massiv tuzadi.",
+      points: 10,
+    },
+  ],
+};
+
+// 100% talab qilinadigan Katta Qiyin Final Imtihon savollari
+export const FINAL_BOSS_QUESTIONS: TestQuestion[] = [
+  {
+    id: 'fb-1',
+    question: "HTML5: Quyidagi elementlardan qaysi biri mustaqil, boshqa joyda qayta ishlatilishi mumkin bo'lgan kontent (masalan, blog post yoki yangilik) uchun mo'ljallangan?",
+    options: ['<section>', '<article>', '<div>', '<aside>'],
+    correctAnswerIndex: 1,
+    explanation: "<article> tegi mustaqil va kontekstdan tashqarida ham ma'noga ega bo'lgan kontent birligi hisoblanadi.",
+    points: 10,
+  },
+  {
+    id: 'fb-2',
+    question: "CSS Spesifikatsiya: Agar elementga quyidagilar qo'llansa, qaysi qoida ustunlik qiladi?\n1. p.text (0,0,1,1)\n2. #main p (0,1,0,1)\n3. p:first-child (0,0,1,1)\n4. .container .box p (0,0,2,1)",
+    options: ['p.text', '#main p', 'p:first-child', '.container .box p'],
+    correctAnswerIndex: 1,
+    explanation: "#main p selektori ID (0,1,0,1) ga ega bo'lgani uchun uning o'ziga xosligi (specificity) eng yuqori bo'ladi.",
+    points: 10,
+  },
+  {
+    id: 'fb-3',
+    question: "CSS: z-index ishlashi uchun element qanday position xususiyatiga ega bo'lishi kerak?",
+    options: ['Faqat position: static', "position: static bo'lmagan istalgan (relative, absolute, fixed, sticky)", 'Faqat position: absolute', "Display: flex bo'lishi shart"],
+    correctAnswerIndex: 1,
+    explanation: "z-index xossasi position qiymati static dan boshqa bo'lgan yoki flex/grid bolalari bo'lgan elementlarda ishlaydi.",
+    points: 10,
+  },
+  {
+    id: 'fb-4',
+    question: "JS Event Loop: Ushbu kod konsolga qanday ketma-ketlikda chop etiladi?\nconsole.log(1);\nsetTimeout(() => console.log(2), 0);\nPromise.resolve().then(() => console.log(3));\nconsole.log(4);",
+    options: ['1, 2, 3, 4', '1, 4, 2, 3', '1, 4, 3, 2', '4, 1, 3, 2'],
+    correctAnswerIndex: 2,
+    explanation: "1 va 4 sinxron bajariladi. Microtask (Promise) setTimeout (macrotask) dan oldin bajariladi: 1, 4, 3, 2.",
+    points: 10,
+  },
+  {
+    id: 'fb-5',
+    question: "JS Closures: Ushbu kod nima chiqaradi?\nfunction createCounter() {\n  let count = 0;\n  return () => ++count;\n}\nconst c1 = createCounter();\nconst c2 = createCounter();\nc1(); c1();\nconsole.log(c2());",
+    options: ['3', '2', '1', 'undefined'],
+    correctAnswerIndex: 2,
+    explanation: "Har bir createCounter() chaqirig'i o'zining alohida yopiq (closure) leksik muhitini yaratadi. Shuning uchun c2() yangi count = 0 dan boshlab 1 qaytaradi.",
+    points: 10,
+  },
+  {
+    id: 'fb-6',
+    question: "JavaScript: [1, 2, 3] + [4, 5, 6] natijasi nima bo'ladi?",
+    options: ['[1, 2, 3, 4, 5, 6]', '"1,2,34,5,6"', 'NaN', 'TypeError xatosi'],
+    correctAnswerIndex: 1,
+    explanation: "Massivlar + amali bilan qo'shilganda toString() orqali \"1,2,3\" va \"4,5,6\" satrlariga aylanadi va \"1,2,34,5,6\" hosil bo'ladi.",
+    points: 10,
+  },
+  {
+    id: 'fb-7',
+    question: "DOM Event Propagation: Hodisa tarqalishining to'g'ri bosqichlari qaysi tartibda bo'ladi?",
+    options: ['Bubbling -> Capturing -> Target', 'Capturing -> Target -> Bubbling', 'Target -> Bubbling -> Capturing', "Faqat Bubbling sodir bo'ladi"],
+    correctAnswerIndex: 1,
+    explanation: "Dastlab hodisa ildizdan pastga tushadi (Capturing), maqsadga yetadi (Target), so'ng tepaga qaytadi (Bubbling).",
+    points: 10,
+  },
+  {
+    id: 'fb-8',
+    question: "CSS Box Sizing: Agar elementda width: 200px; padding: 20px; border: 5px solid; va box-sizing: border-box; bo'lsa, elementning umumiy ko'rinadigan kengligi qancha bo'ladi?",
+    options: ['250px', '225px', '200px', '240px'],
+    correctAnswerIndex: 2,
+    explanation: "box-sizing: border-box da padding va border ko'rsatilgan width (200px) ichiga singdiriladi, umumiy kenglik aynan 200px bo'ladi.",
+    points: 10,
+  },
+  {
+    id: 'fb-9',
+    question: "JS Asinxronlik: Quyidagi Promise.all() qachon reject bo'ladi?",
+    options: ['Barcha promislar xato berganda', "Hech bo'lmaganda bitta promise reject bo'lsa darhol", "Faqat oxirgi promise reject bo'lsa", "Hech qachon reject bo'lmaydi"],
+    correctAnswerIndex: 1,
+    explanation: 'Promise.all "fail-fast" printsipida ishlaydi: bitta promise reject bo\'lishi bilan butun Promise.all reject bo\'ladi.',
+    points: 10,
+  },
+  {
+    id: 'fb-10',
+    question: "Full-Stack Web: Brauzerda xavfsizlik maqsadida bir domen boshqa domendagi resurslarni so'rashini cheklovchi mexanizm nima?",
+    options: ['CSRF', 'XSS', 'CORS (Same-Origin Policy)', 'JWT'],
+    correctAnswerIndex: 2,
+    explanation: "SOP (Same-Origin Policy) va CORS mexanizmi brauzerda domenlararo resurs almashinuvini nazorat qiladi va cheklaydi.",
+    points: 10,
+  },
+];

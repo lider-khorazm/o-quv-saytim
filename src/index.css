@@ -1,0 +1,294 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --bg-primary: #0a0912;
+    --bg-surface: #141122;
+    --bg-surface-2: #1d1830;
+    --bg-surface-3: #282140;
+    --text-primary: #fdfcff;
+    --text-secondary: #cfc6e6;
+    --text-muted: #9489b3;
+    --border-subtle: rgba(255, 107, 134, 0.18);
+    --border-strong: rgba(255, 138, 61, 0.35);
+
+    /* Aurora Sunset Palette */
+    --aurora-coral: #ff6b86;
+    --aurora-coral-lip: #c93b58;
+    --aurora-orange: #ff8a3d;
+    --aurora-orange-lip: #c85c17;
+    --aurora-mint: #3ee6c4;
+    --aurora-mint-lip: #1ba88b;
+    --aurora-lime: #b6f03c;
+    --aurora-lime-lip: #7db512;
+    --aurora-gold: #ffd23f;
+    --aurora-gold-lip: #c9990e;
+    --aurora-danger: #ff4d6d;
+    --aurora-danger-lip: #b81d3a;
+
+    --glass-bg: rgba(20, 17, 34, 0.82);
+    --card-shadow: 0 14px 34px -10px rgba(8, 5, 18, 0.65);
+  }
+
+  html.light {
+    --bg-primary: #fff9f5;
+    --bg-surface: #ffffff;
+    --bg-surface-2: #fff1e6;
+    --bg-surface-3: #ffe4d1;
+    --text-primary: #1a132b;
+    --text-secondary: #43375e;
+    --text-muted: #766894;
+    --border-subtle: rgba(255, 107, 134, 0.22);
+    --border-strong: rgba(255, 138, 61, 0.42);
+    --glass-bg: rgba(255, 255, 255, 0.88);
+    --card-shadow: 0 12px 30px -10px rgba(255, 107, 134, 0.14);
+  }
+
+  body,
+  .aurora-body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+    transition: background-color 0.25s ease, color 0.25s ease;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  code, pre, .font-mono, .tabular-nums {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Accessible keyboard focus ring */
+  *:focus-visible {
+    outline: 3px solid var(--aurora-mint);
+    outline-offset: 2px;
+  }
+}
+
+/* ==================== AURORA SUNSET SURFACES & CARDS ==================== */
+.aurora-bg-mesh {
+  background-color: var(--bg-primary);
+  background-image:
+    radial-gradient(circle at 12% 16%, rgba(255, 107, 134, 0.16) 0%, transparent 40%),
+    radial-gradient(circle at 86% 18%, rgba(255, 138, 61, 0.14) 0%, transparent 42%),
+    radial-gradient(circle at 50% 85%, rgba(62, 230, 196, 0.12) 0%, transparent 48%),
+    radial-gradient(circle at 80% 75%, rgba(255, 210, 63, 0.10) 0%, transparent 38%);
+}
+
+.aurora-glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--border-subtle);
+}
+
+.aurora-card {
+  background-color: var(--bg-surface);
+  border: 2px solid var(--border-subtle);
+  border-radius: 1.5rem;
+  box-shadow: 0 6px 0 rgba(255, 107, 134, 0.12), var(--card-shadow);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.aurora-card-interactive:hover {
+  transform: translateY(-3px);
+  border-color: var(--aurora-coral);
+  box-shadow: 0 9px 0 rgba(255, 107, 134, 0.22), var(--card-shadow);
+}
+
+.aurora-surface-2 {
+  background-color: var(--bg-surface-2);
+  border: 1.5px solid var(--border-subtle);
+}
+
+/* ==================== DUOLINGO 3D TACTILE BUTTONS ==================== */
+.duo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.65rem 1.35rem;
+  border-radius: 1rem;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.12s cubic-bezier(0.16, 1, 0.3, 1), filter 0.12s ease;
+}
+
+.duo-btn:hover {
+  filter: brightness(1.06);
+}
+
+.duo-btn:active {
+  transform: translateY(3px);
+}
+
+.duo-btn-coral {
+  background: linear-gradient(135deg, #ff6b86 0%, #ff8a3d 100%);
+  color: #0a0912 !important;
+  border: 2px solid #ffa3b5;
+  box-shadow: 0 4px 0 var(--aurora-coral-lip), 0 8px 20px rgba(255, 107, 134, 0.32);
+}
+.duo-btn-coral:active {
+  box-shadow: 0 1px 0 var(--aurora-coral-lip);
+}
+
+.duo-btn-mint {
+  background: linear-gradient(135deg, #3ee6c4 0%, #b6f03c 100%);
+  color: #0a0912 !important;
+  border: 2px solid #9df7e5;
+  box-shadow: 0 4px 0 var(--aurora-mint-lip), 0 8px 20px rgba(62, 230, 196, 0.28);
+}
+.duo-btn-mint:active {
+  box-shadow: 0 1px 0 var(--aurora-mint-lip);
+}
+
+.duo-btn-gold {
+  background: linear-gradient(135deg, #ffd23f 0%, #ff8a3d 100%);
+  color: #0a0912 !important;
+  border: 2px solid #ffe58f;
+  box-shadow: 0 4px 0 var(--aurora-gold-lip), 0 8px 20px rgba(255, 210, 63, 0.28);
+}
+.duo-btn-gold:active {
+  box-shadow: 0 1px 0 var(--aurora-gold-lip);
+}
+
+.duo-btn-lime {
+  background: linear-gradient(135deg, #b6f03c 0%, #3ee6c4 100%);
+  color: #0a0912 !important;
+  border: 2px solid #d9f99d;
+  box-shadow: 0 4px 0 var(--aurora-lime-lip), 0 8px 20px rgba(182, 240, 60, 0.28);
+}
+.duo-btn-lime:active {
+  box-shadow: 0 1px 0 var(--aurora-lime-lip);
+}
+
+.duo-btn-surface {
+  background-color: var(--bg-surface-2);
+  color: var(--text-primary);
+  border: 2px solid var(--border-strong);
+  box-shadow: 0 4px 0 rgba(255, 107, 134, 0.25);
+}
+.duo-btn-surface:active {
+  box-shadow: 0 1px 0 rgba(255, 107, 134, 0.25);
+}
+
+/* ==================== AURORA INPUTS ==================== */
+@layer components {
+  .aurora-input {
+    min-height: 44px;
+    background-color: var(--bg-surface-2);
+    color: var(--text-primary);
+    border: 2px solid var(--border-subtle);
+    border-radius: 1rem;
+    padding: 0.65rem 1rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .aurora-input:focus {
+    outline: none;
+    border-color: var(--aurora-coral);
+    box-shadow: 0 0 0 4px rgba(255, 107, 134, 0.18);
+  }
+}
+
+/* ==================== GAMIFIED ANIMATIONS ==================== */
+@keyframes auroraFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@keyframes auroraPulseRing {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.85;
+  }
+  70% {
+    transform: scale(1.18);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.18);
+    opacity: 0;
+  }
+}
+
+@keyframes auroraShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+@keyframes auroraPop {
+  0% { transform: scale(0.88); opacity: 0; }
+  70% { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-aurora-float {
+  animation: auroraFloat 3.4s ease-in-out infinite;
+}
+
+.animate-aurora-shake {
+  animation: auroraShake 0.38s ease-in-out;
+}
+
+.animate-aurora-pop {
+  animation: auroraPop 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ==================== SCROLLBARS ==================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #ff6b86, #ff8a3d);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #ff8a3d, #ffd23f);
+}
+
+/* ==================== THEME FADE TRANSITION ==================== */
+html.theme-fade-transition,
+html.theme-fade-transition *,
+html.theme-fade-transition *::before,
+html.theme-fade-transition *::after {
+  transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}

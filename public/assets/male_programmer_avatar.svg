@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#090D1A" />
+      <stop offset="50%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#1E1B4B" />
+    </linearGradient>
+    <linearGradient id="neonRim" x1="0" y1="0" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#06B6D4" />
+      <stop offset="50%" stop-color="#6366F1" />
+      <stop offset="100%" stop-color="#8B5CF6" />
+    </linearGradient>
+    <linearGradient id="hoodieGrad" x1="40" y1="150" x2="200" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E293B" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+    <linearGradient id="skinGrad" x1="85" y1="65" x2="155" y2="155" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FDBA8C" />
+      <stop offset="100%" stop-color="#F09A67" />
+    </linearGradient>
+    <linearGradient id="hairGrad" x1="75" y1="35" x2="165" y2="95" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E293B" />
+      <stop offset="100%" stop-color="#090D16" />
+    </linearGradient>
+    <linearGradient id="cyanGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22D3EE" />
+      <stop offset="100%" stop-color="#3B82F6" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Circle / Squircle -->
+  <rect width="240" height="240" rx="48" fill="url(#bgGrad)" />
+  <circle cx="48" cy="52" r="56" fill="#06B6D4" fill-opacity="0.14" />
+  <circle cx="195" cy="185" r="64" fill="#6366F1" fill-opacity="0.18" />
+
+  <!-- Subtle Floating Code Symbols in Background -->
+  <g opacity="0.28" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M36 86L26 96L36 106" />
+    <path d="M54 86L64 96L54 106" />
+    <path d="M48 82L42 110" />
+  </g>
+  <g opacity="0.28" stroke="#818CF8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="176" y="76" width="34" height="24" rx="5" />
+    <path d="M183 85L188 89L183 93" />
+    <path d="M192 93H200" />
+  </g>
+
+  <!-- Shoulders & Tech Hoodie -->
+  <path d="M38 240C42 184 74 162 120 162C166 162 198 184 202 240H38Z" fill="url(#hoodieGrad)" stroke="url(#neonRim)" stroke-width="2.5" />
+
+  <!-- Hoodie Collar & Neon Zip Trim -->
+  <path d="M84 164L120 198L156 164" stroke="#22D3EE" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M120 198V240" stroke="#38BDF8" stroke-width="2.5" stroke-opacity="0.7" />
+  <!-- Hoodie Drawstrings -->
+  <path d="M98 178V214" stroke="#94A3B8" stroke-width="3" stroke-linecap="round" />
+  <path d="M142 178V214" stroke="#94A3B8" stroke-width="3" stroke-linecap="round" />
+
+  <!-- Neck -->
+  <rect x="103" y="136" width="34" height="34" rx="12" fill="#E58C59" />
+
+  <!-- Headphone Band (Behind Head) -->
+  <path d="M68 106C68 68 90 44 120 44C150 44 172 68 172 106" stroke="#334155" stroke-width="8" stroke-linecap="round" />
+  <path d="M70 100C70 66 91 44 120 44C149 44 170 66 170 100" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round" opacity="0.85" />
+
+  <!-- Ears & Headphone Cups -->
+  <rect x="60" y="94" width="16" height="34" rx="8" fill="#1E293B" stroke="#22D3EE" stroke-width="2.5" />
+  <rect x="164" y="94" width="16" height="34" rx="8" fill="#1E293B" stroke="#22D3EE" stroke-width="2.5" />
+  <circle cx="68" cy="111" r="3.5" fill="#22D3EE" />
+  <circle cx="172" cy="111" r="3.5" fill="#22D3EE" />
+
+  <!-- Face / Head Shape (Boy / Young Male Programmer) -->
+  <path d="M78 96C78 70 95 54 120 54C145 54 162 70 162 96V112C162 136 144 154 120 154C96 154 78 136 78 112V96Z" fill="url(#skinGrad)" />
+
+  <!-- Male Short Spiky / Modern Styled Hair -->
+  <path d="M76 96C74 72 86 48 116 46C124 41 138 43 146 50C159 54 166 72 164 96C160 82 153 74 142 71C134 76 118 76 105 72C91 74 82 82 76 96Z" fill="url(#hairGrad)" />
+  <path d="M92 52C104 42 126 40 142 48" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" opacity="0.5" />
+
+  <!-- Eyebrows (Confident Male Look) -->
+  <path d="M93 93C98 90 106 90 111 92" stroke="#1E293B" stroke-width="3.5" stroke-linecap="round" />
+  <path d="M129 92C134 90 142 90 147 93" stroke="#1E293B" stroke-width="3.5" stroke-linecap="round" />
+
+  <!-- Eyes -->
+  <circle cx="102" cy="105" r="4.5" fill="#0F172A" />
+  <circle cx="138" cy="105" r="4.5" fill="#0F172A" />
+  <circle cx="103.5" cy="103.5" r="1.5" fill="#FFFFFF" />
+  <circle cx="139.5" cy="103.5" r="1.5" fill="#FFFFFF" />
+
+  <!-- Modern Developer Glasses with Subtle Cyan Reflection -->
+  <rect x="88" y="96" width="28" height="19" rx="5" fill="#06B6D4" fill-opacity="0.12" stroke="#0F172A" stroke-width="2.8" />
+  <rect x="124" y="96" width="28" height="19" rx="5" fill="#06B6D4" fill-opacity="0.12" stroke="#0F172A" stroke-width="2.8" />
+  <path d="M116 104H124" stroke="#0F172A" stroke-width="2.8" />
+  <path d="M78 103L88 104" stroke="#0F172A" stroke-width="2.5" />
+  <path d="M152 104L162 103" stroke="#0F172A" stroke-width="2.5" />
+  <!-- Lens Glint -->
+  <path d="M93 100L98 111" stroke="#67E8F9" stroke-width="1.8" stroke-linecap="round" opacity="0.8" />
+  <path d="M129 100L134 111" stroke="#67E8F9" stroke-width="1.8" stroke-linecap="round" opacity="0.8" />
+
+  <!-- Nose -->
+  <path d="M120 107V120L116 123" stroke="#C86D44" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Confident Friendly Smile -->
+  <path d="M108 132C113 137 127 137 132 132" stroke="#9A3412" stroke-width="3" stroke-linecap="round" />
+
+  <!-- Glowing Developer Badge on Hoodie -->
+  <rect x="144" y="198" width="32" height="20" rx="6" fill="#090D1A" stroke="#22D3EE" stroke-width="1.8" />
+  <path d="M153 205L158 208L153 211" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M161 211H167" stroke="#A855F7" stroke-width="2" stroke-linecap="round" />
+
+  <!-- Outer Frame Border -->
+  <rect x="2" y="2" width="236" height="236" rx="46" stroke="url(#neonRim)" stroke-width="4" stroke-opacity="0.55" />
+</svg>
