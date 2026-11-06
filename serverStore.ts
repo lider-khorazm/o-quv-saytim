@@ -19,6 +19,9 @@ export const SHARED_KEYS = [
   'devmaster_group_messages_v2',
   'devmaster_portfolio_projects_v1',
   'devmaster_ai_friend_personas_v1',
+  'devmaster_feedback_reports_v1',
+  'devmaster_sub_admins_v1',
+  'devmaster_ai_memories_v1',
 ];
 
 export interface Row {

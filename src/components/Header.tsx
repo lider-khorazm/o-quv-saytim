@@ -6,24 +6,20 @@ import {
   LogOut,
   Sparkles,
   Download,
-  Home,
-  LayoutDashboard,
   Sun,
   Moon,
   Palette,
-  Code2,
-  Gamepad2,
-  Bot,
   Flame,
   Coins,
   Zap,
-  Compass,
-  Trophy,
-  ShoppingBag,
   User,
+  LayoutGrid,
+  Layers,
 } from 'lucide-react';
 import { Student, Teacher, AuthUser } from '../types';
 import { useTheme } from '../context/ThemeContext';
+
+export type TopMenuTab = 'profil' | 'asosiy' | 'sahifalar';
 
 interface HeaderProps {
   currentUser: AuthUser | null;
@@ -42,9 +38,8 @@ interface HeaderProps {
   onToggleLandingPage?: (show: boolean) => void;
   onOpenGroqConfig?: () => void;
   onOpenBackgroundModal?: () => void;
-  activeView?: 'main' | 'portfolio' | 'game3d';
-  onSelectView?: (view: 'main' | 'portfolio' | 'game3d') => void;
-  onOpenGeminiStudio?: () => void;
+  activeTopTab?: TopMenuTab;
+  onSelectTopTab?: (tab: TopMenuTab) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -60,9 +55,8 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleLandingPage,
   onOpenGroqConfig,
   onOpenBackgroundModal,
-  activeView = 'main',
-  onSelectView,
-  onOpenGeminiStudio,
+  activeTopTab = 'asosiy',
+  onSelectTopTab,
 }) => {
   const { theme, toggleTheme } = useTheme();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -75,7 +69,6 @@ export const Header: React.FC<HeaderProps> = ({
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Calculate gamified streak & level from existing student data
   const studentStreak = selectedStudent
     ? Math.max(1, (selectedStudent.completedLessons?.length || 0) + 3)
     : 3;
@@ -83,29 +76,36 @@ export const Header: React.FC<HeaderProps> = ({
     ? Math.max(1, Math.floor((selectedStudent.xp || 0) / 100) + 1)
     : 1;
 
-  const dispatchMobileTab = (tab: string) => {
+  const handleTopNavClick = (tab: TopMenuTab) => {
     if (onToggleLandingPage) onToggleLandingPage(false);
-    window.dispatchEvent(new CustomEvent('aurora-student-tab', { detail: tab }));
+    if (onSelectTopTab) onSelectTopTab(tab);
+    window.dispatchEvent(new CustomEvent('aurora-top-nav', { detail: tab }));
   };
 
   return (
     <>
       <header
         className={`sticky top-0 z-40 aurora-glass transition-all duration-200 ${
-          isScrolled ? 'py-1.5 shadow-2xl' : 'py-3'
+          isScrolled ? 'py-1.5 shadow-2xl' : 'py-2.5'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-3">
             {/* Brand Logo */}
             <button
               type="button"
-              onClick={() => onToggleLandingPage && onToggleLandingPage(true)}
+              onClick={() => {
+                if (currentUser?.role === 'student') {
+                  handleTopNavClick('asosiy');
+                } else if (onToggleLandingPage) {
+                  onToggleLandingPage(true);
+                }
+              }}
               className="flex items-center gap-3 cursor-pointer group text-left shrink-0"
             >
               <div
                 className={`rounded-2xl overflow-hidden border-2 border-[#ff6b86]/60 shadow-lg transition-all flex items-center justify-center shrink-0 ${
-                  isScrolled ? 'h-10 w-16' : 'h-12 w-20'
+                  isScrolled ? 'h-9 w-14' : 'h-11 w-18'
                 }`}
               >
                 <img
@@ -115,183 +115,157 @@ export const Header: React.FC<HeaderProps> = ({
                   className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform"
                 />
               </div>
-              <div className="hidden sm:block">
-                <span className="font-display text-lg sm:text-xl font-bold tracking-tight bg-gradient-to-r from-[#ff6b86] via-[#ff8a3d] to-[#ffd23f] bg-clip-text text-transparent block leading-none">
+              <div className="hidden md:block">
+                <span className="font-display text-lg font-bold tracking-tight bg-gradient-to-r from-[#ff6b86] via-[#ff8a3d] to-[#ffd23f] bg-clip-text text-transparent block leading-none">
                   DevMaster
                 </span>
-                <span className="text-[11px] opacity-75 font-medium block mt-1">
-                  O&apos;yinlashtirilgan Dasturlash Akademiyasi
+                <span className="text-[10px] opacity-75 font-medium block mt-1">
+                  O&apos;yinlashtirilgan Akademiya
                 </span>
               </div>
             </button>
 
-            {/* Gamified XP / Streak / Coins HUD (Always visible when student is logged in - NO HEARTS!) */}
-            {currentUser?.role === 'student' && selectedStudent && (
-              <div className="flex items-center gap-2 sm:gap-3 px-3 py-1.5 rounded-2xl aurora-surface-2">
-                {/* Daily Streak */}
+            {/* 3 MAIN TOP MENU BUTTONS: PROFIL | ASOSIY | SAHIFALAR (Windows 10 Settings Style Launcher) */}
+            {currentUser && (currentUser.role === 'student' || selectedStudent?.isGhostAdminStudent) && (
+              <nav
+                aria-label="Asosiy Menyu"
+                className="flex items-center gap-1.5 sm:gap-2 p-1.5 rounded-2xl aurora-surface-2 border border-white/10 shadow-inner"
+              >
+                <button
+                  type="button"
+                  onClick={() => handleTopNavClick('profil')}
+                  className={`px-3.5 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-display font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                    !showLandingPage && activeTopTab === 'profil'
+                      ? 'bg-gradient-to-r from-[#ff6b86] to-[#ff8a3d] text-[#0a0912] shadow-lg scale-[1.02]'
+                      : 'opacity-80 hover:opacity-100 hover:bg-white/5'
+                  }`}
+                >
+                  <User className="w-4 h-4 shrink-0" />
+                  <span>Profil</span>
+                  {selectedStudent?.adminMessages?.some((m) => !m.read) && (
+                    <span className="w-2 h-2 rounded-full bg-[#ffd23f] animate-ping" />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleTopNavClick('asosiy')}
+                  className={`px-3.5 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-display font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                    !showLandingPage && activeTopTab === 'asosiy'
+                      ? 'bg-gradient-to-r from-[#3ee6c4] to-[#b6f03c] text-[#0a0912] shadow-lg scale-[1.02]'
+                      : 'opacity-80 hover:opacity-100 hover:bg-white/5'
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4 shrink-0" />
+                  <span>Asosiy</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleTopNavClick('sahifalar')}
+                  className={`px-3.5 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-display font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                    showLandingPage || activeTopTab === 'sahifalar'
+                      ? 'bg-gradient-to-r from-[#ffd23f] to-[#ff8a3d] text-[#0a0912] shadow-lg scale-[1.02]'
+                      : 'opacity-80 hover:opacity-100 hover:bg-white/5'
+                  }`}
+                >
+                  <Layers className="w-4 h-4 shrink-0" />
+                  <span>Sahifalar</span>
+                </button>
+              </nav>
+            )}
+
+            {/* Gamified XP / Streak / Coins HUD (when student or ghost admin student is active) */}
+            {(currentUser?.role === 'student' || selectedStudent?.isGhostAdminStudent) && selectedStudent && (
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-2xl aurora-surface-2">
                 <div
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#ff8a3d]/15 text-[#ff8a3d] font-mono text-xs sm:text-sm font-bold tabular-nums"
+                  className="flex items-center gap-1 px-2 py-1 rounded-xl bg-[#ff8a3d]/15 text-[#ff8a3d] font-mono text-xs font-bold tabular-nums"
                   title="Kunlik uzluksiz faollik (Streak)"
                 >
-                  <Flame className="w-4 h-4 fill-[#ff8a3d] text-[#ff8a3d]" />
-                  <span>{studentStreak}</span>
+                  <Flame className="w-3.5 h-3.5 fill-[#ff8a3d] text-[#ff8a3d]" />
+                  <span>{selectedStudent.isGhostAdminStudent ? '∞' : studentStreak}</span>
                 </div>
 
-                {/* XP & Level */}
                 <div
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#3ee6c4]/15 text-[#3ee6c4] font-mono text-xs sm:text-sm font-bold tabular-nums"
+                  className="flex items-center gap-1 px-2 py-1 rounded-xl bg-[#3ee6c4]/15 text-[#3ee6c4] font-mono text-xs font-bold tabular-nums"
                   title={`Daraja ${studentLevel} • Jami tajriba ballari`}
                 >
-                  <Zap className="w-4 h-4 fill-[#3ee6c4] text-[#3ee6c4]" />
-                  <span>{selectedStudent.xp} XP</span>
-                  <span className="hidden md:inline text-[11px] px-1.5 py-0.5 rounded-md bg-[#3ee6c4]/20">
-                    LVL {studentLevel}
-                  </span>
+                  <Zap className="w-3.5 h-3.5 fill-[#3ee6c4] text-[#3ee6c4]" />
+                  <span>{selectedStudent.isGhostAdminStudent ? '∞ XP' : `${selectedStudent.xp} XP`}</span>
                 </div>
 
-                {/* Coins */}
                 <div
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#ffd23f]/15 text-[#ffd23f] font-mono text-xs sm:text-sm font-bold tabular-nums"
+                  className="flex items-center gap-1 px-2 py-1 rounded-xl bg-[#ffd23f]/15 text-[#ffd23f] font-mono text-xs font-bold tabular-nums"
                   title="Tangalar hisobi"
                 >
-                  <Coins className="w-4 h-4 text-[#ffd23f]" />
-                  <span>{Number(selectedStudent.coins || 0).toFixed(0)}</span>
+                  <Coins className="w-3.5 h-3.5 text-[#ffd23f]" />
+                  <span>
+                    {selectedStudent.isGhostAdminStudent
+                      ? '∞ 🪙'
+                      : Number(selectedStudent.coins || 0).toFixed(1)}
+                  </span>
                 </div>
               </div>
             )}
 
             {/* Right Actions */}
-            <div className="flex items-center gap-2 sm:gap-2.5">
-              {/* Feature Shortcuts */}
-              <div className="hidden lg:flex items-center gap-2">
-                {onSelectView && (
-                  <button
-                    type="button"
-                    onClick={() => onSelectView(activeView === 'game3d' ? 'main' : 'game3d')}
-                    className="duo-btn duo-btn-surface !py-1.5 !px-3 text-xs"
-                  >
-                    <Gamepad2 className="w-4 h-4 text-[#b6f03c]" />
-                    <span>3D Arena</span>
-                  </button>
-                )}
+            <div className="flex items-center gap-2">
+              {currentUser && currentUser.role !== 'student' && (
+                <button
+                  type="button"
+                  onClick={onOpenGroupChatModal}
+                  className="hidden sm:flex duo-btn duo-btn-surface !py-1.5 !px-3 text-xs"
+                >
+                  <MessageSquare className="w-4 h-4 text-[#3ee6c4]" />
+                  <span>Guruh Chati</span>
+                </button>
+              )}
 
-                {onOpenGeminiStudio && (
-                  <button
-                    type="button"
-                    onClick={onOpenGeminiStudio}
-                    className="duo-btn duo-btn-surface !py-1.5 !px-3 text-xs"
-                  >
-                    <Bot className="w-4 h-4 text-[#3ee6c4]" />
-                    <span>AI Ustoz</span>
-                  </button>
-                )}
+              {onOpenBackgroundModal && (
+                <button
+                  type="button"
+                  onClick={onOpenBackgroundModal}
+                  className="hidden md:flex duo-btn duo-btn-surface !py-1.5 !px-3 text-xs"
+                >
+                  <Palette className="w-4 h-4 text-[#ff6b86]" />
+                  <span>Mavzu</span>
+                </button>
+              )}
 
-                {onSelectView && (
-                  <button
-                    type="button"
-                    onClick={() => onSelectView(activeView === 'portfolio' ? 'main' : 'portfolio')}
-                    className={`duo-btn !py-1.5 !px-3 text-xs ${
-                      activeView === 'portfolio' ? 'duo-btn-mint' : 'duo-btn-surface'
-                    }`}
-                  >
-                    <Code2 className="w-4 h-4 text-[#ff8a3d]" />
-                    <span>Loyihalar</span>
-                  </button>
-                )}
+              {currentUser?.role === 'owner' && onOpenGroqConfig && (
+                <button
+                  type="button"
+                  onClick={onOpenGroqConfig}
+                  className="hidden lg:flex duo-btn duo-btn-gold !py-1.5 !px-3 text-xs"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Groq AI</span>
+                </button>
+              )}
 
-                {currentUser && (
-                  <button
-                    type="button"
-                    onClick={onOpenGroupChatModal}
-                    className="duo-btn duo-btn-surface !py-1.5 !px-3 text-xs"
-                  >
-                    <MessageSquare className="w-4 h-4 text-[#3ee6c4]" />
-                    <span>Guruh Chati</span>
-                  </button>
-                )}
-
-                {onOpenBackgroundModal && (
-                  <button
-                    type="button"
-                    onClick={onOpenBackgroundModal}
-                    className="duo-btn duo-btn-surface !py-1.5 !px-3 text-xs"
-                  >
-                    <Palette className="w-4 h-4 text-[#ff6b86]" />
-                    <span>Mavzu</span>
-                  </button>
-                )}
-
-                {currentUser?.role === 'owner' && onOpenGroqConfig && (
-                  <button
-                    type="button"
-                    onClick={onOpenGroqConfig}
-                    className="duo-btn duo-btn-gold !py-1.5 !px-3 text-xs"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    <span>Groq AI</span>
-                  </button>
-                )}
-
-                {currentUser?.role === 'owner' && (
-                  <a
-                    href="/devmaster-project.zip"
-                    download="devmaster-project.zip"
-                    className="duo-btn duo-btn-mint !py-1.5 !px-3 text-xs"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>ZIP</span>
-                  </a>
-                )}
-              </div>
-
-              {/* Dashboard / Landing Switch */}
-              {currentUser && onToggleLandingPage && (
-                <div className="hidden sm:flex items-center p-1 rounded-2xl aurora-surface-2 gap-1">
-                  <button
-                    type="button"
-                    onClick={() => onToggleLandingPage(false)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                      !showLandingPage
-                        ? 'bg-gradient-to-r from-[#ff6b86] to-[#ff8a3d] text-[#0a0912] shadow'
-                        : 'opacity-75 hover:opacity-100'
-                    }`}
-                  >
-                    <LayoutDashboard className="w-3.5 h-3.5" />
-                    <span>Kabinet</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onToggleLandingPage(true)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                      showLandingPage
-                        ? 'bg-gradient-to-r from-[#3ee6c4] to-[#b6f03c] text-[#0a0912] shadow'
-                        : 'opacity-75 hover:opacity-100'
-                    }`}
-                  >
-                    <Home className="w-3.5 h-3.5" />
-                    <span>Bosh Sahifa</span>
-                  </button>
-                </div>
+              {currentUser?.role === 'owner' && (
+                <a
+                  href="/devmaster-project.zip"
+                  download="devmaster-project.zip"
+                  className="hidden lg:flex duo-btn duo-btn-mint !py-1.5 !px-3 text-xs"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>ZIP</span>
+                </a>
               )}
 
               {/* Light / Dark Mode Switch */}
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="duo-btn duo-btn-surface !px-3 !py-2 text-xs"
+                className="duo-btn duo-btn-surface !px-2.5 !py-2 text-xs"
                 title={theme === 'dark' ? "Yorug' rejim" : "To'q rejim"}
                 aria-label="Mavzu rejimini almashtirish"
               >
                 {theme === 'dark' ? (
-                  <>
-                    <Sun className="w-4 h-4 text-[#ffd23f]" />
-                    <span className="hidden md:inline">Yorug&apos;</span>
-                  </>
+                  <Sun className="w-4 h-4 text-[#ffd23f]" />
                 ) : (
-                  <>
-                    <Moon className="w-4 h-4 text-[#ff6b86]" />
-                    <span className="hidden md:inline">To&apos;q</span>
-                  </>
+                  <Moon className="w-4 h-4 text-[#ff6b86]" />
                 )}
               </button>
 
@@ -299,13 +273,15 @@ export const Header: React.FC<HeaderProps> = ({
               {currentUser ? (
                 <div className="flex items-center gap-2">
                   <div className="hidden xl:flex flex-col text-right pr-1">
-                    <span className="text-xs font-bold truncate max-w-[130px]">
+                    <span className="text-xs font-bold truncate max-w-[120px]">
                       {currentUser.name}
                     </span>
                     <span className="text-[10px] font-mono text-[#3ee6c4]">
                       @{currentUser.username} ·{' '}
                       {currentUser.role === 'owner'
-                        ? 'Admin'
+                        ? 'Bosh Admin'
+                        : currentUser.role === 'sub_admin'
+                        ? currentUser.subAdminRoleTitle || "O'rinbosar Admin"
                         : currentUser.role === 'teacher'
                         ? 'Ustoz'
                         : selectedTeacher
@@ -357,47 +333,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </header>
-
-      {/* Mobile Bottom Gamified Navigation Bar (Yo'l, Reyting, Do'kon, Profil) */}
-      {currentUser && !showLandingPage && (
-        <nav
-          aria-label="Mobil navigatsiya"
-          className="sm:hidden fixed bottom-0 inset-x-0 z-40 aurora-glass border-t-2 border-[#ff6b86]/25 px-3 py-1.5 flex items-center justify-around"
-        >
-          <button
-            type="button"
-            onClick={() => dispatchMobileTab('path')}
-            className="flex flex-col items-center justify-center min-h-[44px] px-3 py-1 rounded-xl text-xs font-bold text-[#ff6b86] active:scale-95 transition-transform"
-          >
-            <Compass className="w-5 h-5" />
-            <span className="text-[11px] mt-0.5">Yo&apos;l</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => dispatchMobileTab('league')}
-            className="flex flex-col items-center justify-center min-h-[44px] px-3 py-1 rounded-xl text-xs font-bold text-[#ffd23f] active:scale-95 transition-transform"
-          >
-            <Trophy className="w-5 h-5" />
-            <span className="text-[11px] mt-0.5">Reyting</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => dispatchMobileTab('shop')}
-            className="flex flex-col items-center justify-center min-h-[44px] px-3 py-1 rounded-xl text-xs font-bold text-[#3ee6c4] active:scale-95 transition-transform"
-          >
-            <ShoppingBag className="w-5 h-5" />
-            <span className="text-[11px] mt-0.5">Do&apos;kon</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => dispatchMobileTab('profile')}
-            className="flex flex-col items-center justify-center min-h-[44px] px-3 py-1 rounded-xl text-xs font-bold text-[#b6f03c] active:scale-95 transition-transform"
-          >
-            <User className="w-5 h-5" />
-            <span className="text-[11px] mt-0.5">Profil</span>
-          </button>
-        </nav>
-      )}
     </>
   );
 };

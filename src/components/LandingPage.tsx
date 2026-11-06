@@ -21,11 +21,19 @@ import {
   Sparkles,
   Compass,
   Quote,
+  Upload,
+  Send,
+  Bug,
+  Lightbulb,
+  ArrowLeft,
+  Image as ImageIcon,
+  Video,
+  X,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { OWNER_PROFILE, INITIAL_TEACHERS } from '../data/mockData';
 import { Student, Teacher } from '../types';
-import { MALE_PROGRAMMER_AVATAR } from '../services/storage';
+import { MALE_PROGRAMMER_AVATAR, addFeedbackReport } from '../services/storage';
 import { AuroraMascot } from './AuroraMascot';
 
 interface LandingPageProps {
@@ -51,6 +59,72 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [challengeSolved, setChallengeSolved] = useState(false);
   const [challengeError, setChallengeError] = useState(false);
   const [challengeFeedback, setChallengeFeedback] = useState<string | null>(null);
+
+  // Xatoliklar (Bug) yoki G'oyalarni (Takliflarni) Kiritish Formasi State
+  const [fbFirstName, setFbFirstName] = useState('');
+  const [fbLastName, setFbLastName] = useState('');
+  const [fbContact, setFbContact] = useState('');
+  const [fbType, setFbType] = useState<'bug' | 'suggestion'>('bug');
+  const [fbMessage, setFbMessage] = useState('');
+  const [fbMediaUrl, setFbMediaUrl] = useState<string | undefined>(undefined);
+  const [fbMediaType, setFbMediaType] = useState<'image' | 'video' | undefined>(undefined);
+  const [fbMediaName, setFbMediaName] = useState<string | undefined>(undefined);
+  const [fbSubmittedType, setFbSubmittedType] = useState<'bug' | 'suggestion' | null>(null);
+  const [fbError, setFbError] = useState<string | null>(null);
+
+  const handleFeedbackMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isVideo = file.type.startsWith('video/');
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setFbMediaUrl(reader.result);
+        setFbMediaType(isVideo ? 'video' : 'image');
+        setFbMediaName(file.name);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFeedbackSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fbFirstName.trim() || !fbLastName.trim() || !fbContact.trim() || !fbMessage.trim()) {
+      setFbError("Iltimos, ism, familiya, bog'lanish manzili va xabar matnini to'liq kiriting!");
+      return;
+    }
+    setFbError(null);
+    addFeedbackReport({
+      firstName: fbFirstName,
+      lastName: fbLastName,
+      contact: fbContact,
+      type: fbType,
+      message: fbMessage,
+      mediaUrl: fbMediaUrl,
+      mediaType: fbMediaType,
+      mediaName: fbMediaName,
+    });
+    setFbSubmittedType(fbType);
+    try {
+      confetti({
+        particleCount: 70,
+        spread: 65,
+        origin: { y: 0.7 },
+      });
+    } catch {}
+  };
+
+  const handleResetFeedbackForm = () => {
+    setFbSubmittedType(null);
+    setFbFirstName('');
+    setFbLastName('');
+    setFbContact('');
+    setFbMessage('');
+    setFbMediaUrl(undefined);
+    setFbMediaType(undefined);
+    setFbMediaName(undefined);
+    setFbError(null);
+  };
 
   const handleTestChallenge = () => {
     if (
@@ -624,6 +698,240 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </button>
           </div>
         </div>
+      </section>
+
+      {/* 9. XATOLIKLAR (BUG) YOKI G'OYALARNI (TAKLIFLARNI) KIRITISH BO'LIMI */}
+      <section className="aurora-card p-6 sm:p-10 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#ff6b86]/25 to-[#3ee6c4]/25 text-[#3ee6c4] flex items-center justify-center shrink-0">
+              {fbType === 'bug' ? (
+                <Bug className="w-6 h-6 text-[#ff6b86]" />
+              ) : (
+                <Lightbulb className="w-6 h-6 text-[#ffd23f]" />
+              )}
+            </div>
+            <div>
+              <h2 className="font-display text-xl sm:text-2xl font-bold">
+                Xatoliklar yoki G&apos;oyalarni Kiritish
+              </h2>
+              <p className="text-xs sm:text-sm opacity-75">
+                Saytda xatolik (bug) ko&apos;rdingizmi yoki yangi taklifingiz bormi? Rasm/video bilan adminga yuboring!
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-mono text-[#3ee6c4]">
+            To&apos;g&apos;ridan-to&apos;g&apos;ri Admin &quot;Xabarlar&quot; qutisiga tushadi
+          </span>
+        </div>
+
+        {fbSubmittedType ? (
+          /* YUBORILGANDAN KEYINGI TASDIQ EKRANI (BUG YOKI TAKLIFGA QARAB) */
+          <div className="aurora-surface-2 rounded-3xl p-7 sm:p-10 text-center max-w-2xl mx-auto space-y-6 border-2 border-[#3ee6c4]/40">
+            <div className="w-16 h-16 rounded-3xl bg-[#3ee6c4]/20 text-[#3ee6c4] flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-9 h-9" />
+            </div>
+
+            {fbSubmittedType === 'bug' ? (
+              <div className="space-y-3">
+                <h3 className="font-display text-xl sm:text-2xl font-bold text-[#ffd23f]">
+                  Xatolik (Bug) Haqidagi Xabaringiz Qabul Qilindi!
+                </h3>
+                <p className="text-sm sm:text-base leading-relaxed opacity-95">
+                  Bizni ogohlantirganingiz uchun rahmat! Bu xatoni <strong>1-2 kun ichida</strong> ko&apos;rib chiqib va tuzatishga harakat qilamiz va siz bilan bog&apos;lanishimiz ham mumkin. Shuning uchun Gmail manzillaringizni va telefoningizni tekshirib turishingizni iltimos qilamiz.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <h3 className="font-display text-xl sm:text-2xl font-bold text-[#3ee6c4]">
+                  Taklifingiz Muvaffaqiyatli Qabul Qilindi!
+                </h3>
+                <p className="text-sm sm:text-base leading-relaxed opacity-95">
+                  Taklifingiz uchun rahmat! Buni biz jamoamiz bilan <strong>3-4 kun ichida</strong> kelishib, sizga anig&apos;ini telefon raqam yoki Gmail orqali xabar beramiz.
+                </p>
+              </div>
+            )}
+
+            <div className="pt-2 flex justify-center">
+              <button
+                type="button"
+                onClick={handleResetFeedbackForm}
+                className="duo-btn duo-btn-mint !px-7 !py-3 text-xs sm:text-sm flex items-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Sahifaga qaytish</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* 3 TA TEXT INPUT, 1 TA SELECT, RASM/VIDEO YUKLASH, 1 TA TEXTAREA VA 1 TA SUBMIT BUTTON */
+          <form onSubmit={handleFeedbackSubmit} className="space-y-5">
+            {fbError && (
+              <div className="p-3.5 rounded-2xl bg-[#ff4d6d]/20 border border-[#ff4d6d]/40 text-[#ff6b86] text-xs font-bold">
+                {fbError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* 1-input: Ism */}
+              <div>
+                <label className="text-xs font-bold block mb-1.5">1. Ismingiz:</label>
+                <input
+                  type="text"
+                  value={fbFirstName}
+                  onChange={(e) => setFbFirstName(e.target.value)}
+                  placeholder="Ismingizni kiriting..."
+                  className="w-full aurora-input text-xs sm:text-sm"
+                  required
+                />
+              </div>
+
+              {/* 2-input: Familiya */}
+              <div>
+                <label className="text-xs font-bold block mb-1.5">2. Familiyangiz:</label>
+                <input
+                  type="text"
+                  value={fbLastName}
+                  onChange={(e) => setFbLastName(e.target.value)}
+                  placeholder="Familiyangizni kiriting..."
+                  className="w-full aurora-input text-xs sm:text-sm"
+                  required
+                />
+              </div>
+
+              {/* 3-input: Siz bilan bog'lanishimiz uchun tel raqam yoki Gmail manzil */}
+              <div>
+                <label className="text-xs font-bold block mb-1.5">
+                  3. Bog&apos;lanish uchun tel raqam yoki Gmail manzil:
+                </label>
+                <input
+                  type="text"
+                  value={fbContact}
+                  onChange={(e) => setFbContact(e.target.value)}
+                  placeholder="+998 90 123 45 67 yoki misol@gmail.com"
+                  className="w-full aurora-input text-xs sm:text-sm"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 1 ta Select: 2 ta variant (Bug yoki xatolik / Takliflar) */}
+              <div>
+                <label className="text-xs font-bold block mb-1.5">
+                  Murojaat turini tanlang:
+                </label>
+                <select
+                  value={fbType}
+                  onChange={(e) => setFbType(e.target.value as 'bug' | 'suggestion')}
+                  className="w-full aurora-input text-xs sm:text-sm font-bold cursor-pointer"
+                >
+                  <option value="bug">🐞 Bug yoki xatolik</option>
+                  <option value="suggestion">💡 Takliflar (Yangi g&apos;oya)</option>
+                </select>
+              </div>
+
+              {/* Rasm yoki Video yuklaydigan joy */}
+              <div>
+                <label className="text-xs font-bold block mb-1.5">
+                  Rasm yoki Video yuklash (ixtiyoriy — xatolik isboti):
+                </label>
+                <div className="flex items-center gap-3">
+                  <label className="duo-btn duo-btn-surface !py-2.5 !px-4 text-xs cursor-pointer flex items-center gap-2 w-full justify-center">
+                    <Upload className="w-4 h-4 text-[#3ee6c4]" />
+                    <span className="truncate">
+                      {fbMediaName ? fbMediaName : 'Rasm yoki Video tanlash...'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*,video/*"
+                      onChange={handleFeedbackMediaUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {fbMediaUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFbMediaUrl(undefined);
+                        setFbMediaType(undefined);
+                        setFbMediaName(undefined);
+                      }}
+                      className="duo-btn duo-btn-coral !p-2.5 text-xs shrink-0"
+                      title="Yuklangan faylni o'chirish"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Yuklangan rasm yoki video ko'rinishi */}
+            {fbMediaUrl && (
+              <div className="aurora-surface-2 p-3.5 rounded-2xl flex items-center gap-4">
+                {fbMediaType === 'video' ? (
+                  <video
+                    src={fbMediaUrl}
+                    controls
+                    className="w-40 h-24 rounded-xl object-cover bg-black border border-white/15"
+                  />
+                ) : (
+                  <img
+                    src={fbMediaUrl}
+                    alt="Yuklangan fayl"
+                    className="w-32 h-24 rounded-xl object-cover border border-white/15"
+                  />
+                )}
+                <div className="text-xs space-y-1">
+                  <span className="font-bold text-[#3ee6c4] flex items-center gap-1.5">
+                    {fbMediaType === 'video' ? (
+                      <Video className="w-4 h-4" />
+                    ) : (
+                      <ImageIcon className="w-4 h-4" />
+                    )}
+                    {fbMediaName || 'Media fayl biriktirildi'}
+                  </span>
+                  <p className="opacity-70">
+                    Ushbu fayl Admin paneldagi &quot;Xabarlar&quot; bo&apos;limiga xabaringiz bilan birga yuboriladi.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* 1 ta Textarea */}
+            <div>
+              <label className="text-xs font-bold block mb-1.5">
+                {fbType === 'bug'
+                  ? "Xatolik (Bug) haqida batafsil yozing (qaysi sahifada va qanday yuz berdi):"
+                  : "Taklifingiz yoki g'oyangizni batafsil yozing:"}
+              </label>
+              <textarea
+                value={fbMessage}
+                onChange={(e) => setFbMessage(e.target.value)}
+                rows={4}
+                placeholder={
+                  fbType === 'bug'
+                    ? "Masalan: Ro'yxatdan o'tish oynasida tugmani bosganimda..."
+                    : "Masalan: Saytga quyidagi yangi imkoniyat qo'shilsa juda zo'r bo'lardi..."
+                }
+                className="w-full aurora-input text-xs sm:text-sm resize-y"
+                required
+              />
+            </div>
+
+            {/* 1 ta Submit Button */}
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="duo-btn duo-btn-coral !px-8 !py-3.5 text-xs sm:text-sm flex items-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                <span>Adminga Yuborish (Submit)</span>
+              </button>
+            </div>
+          </form>
+        )}
       </section>
     </div>
   );

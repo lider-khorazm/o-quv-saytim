@@ -20,16 +20,40 @@ import {
   Plus,
   Download,
   Code,
-  Settings,
   Check,
   Copy,
   UserPlus,
   AlertTriangle,
   Sliders,
   FileCheck,
-  Search
+  Search,
+  Bell,
+  Wifi,
+  WifiOff,
+  Flame,
+  Swords,
+  Sparkles,
+  Timer,
+  Bug,
+  Lightbulb,
+  Bot,
+  Send,
+  Volume2,
+  Eye,
+  Briefcase,
 } from 'lucide-react';
-import { Student, Teacher, TestSubmissionResult, ExpelRequest, CourseStage, GeneratedTest } from '../types';
+import {
+  Student,
+  Teacher,
+  TestSubmissionResult,
+  ExpelRequest,
+  CourseStage,
+  GeneratedTest,
+  FeedbackReport,
+  SubAdmin,
+  SubAdminDepartment,
+  AuthUser,
+} from '../types';
 import { OWNER_PROFILE } from '../data/mockData';
 import {
   deleteStudent,
@@ -45,13 +69,33 @@ import {
   saveTestSubmissions,
   saveStudents,
   saveTeachers,
-  resetEntireCentralDatabase
+  resetEntireCentralDatabase,
+  sendAdminMessageToStudent,
+  recordLeagueBattleResult,
+  getFeedbackReports,
+  updateFeedbackReport,
+  deleteFeedbackReport,
+  getSubAdmins,
+  addSubAdmin,
+  deleteSubAdmin,
+  assignSubAdminTask,
+  toggleSubAdminTask,
+  MALE_PROGRAMMER_AVATAR,
+  getLegendAdminStudentProfile,
+  saveLegendAdminStudentProfile,
+  issueInstantCertificateToStudent,
+  broadcastRewardToStudents,
 } from '../services/storage';
 import { getActiveBackendName } from '../services/remoteStore';
 import { useBackground } from '../context/BackgroundContext';
 import { AuroraMascot } from './AuroraMascot';
+import { AvatarWithFrame, ORNATE_SHOP_FRAMES } from './AvatarWithFrame';
+import { StudentPublicProfileModal } from './StudentPublicProfileModal';
+import { CmdBekMascot, CmdBekMood } from './CmdBekMascot';
+import { speakUzbekBoyVoice } from '../services/ttsService';
 
 interface AdminViewProps {
+  currentUser?: AuthUser | null;
   teachers: Teacher[];
   students: Student[];
   testSubmissions: TestSubmissionResult[];
@@ -63,6 +107,7 @@ interface AdminViewProps {
   onOpenGroupChat?: (teacherId: string) => void;
   onOpenGroqConfig?: () => void;
   onRefreshData?: () => void;
+  onEnterAsStudent?: () => void;
 }
 
 interface CuratedVideo {
@@ -149,6 +194,7 @@ const parseYouTubeEmbedUrl = (input: string): string => {
 };
 
 export const AdminView: React.FC<AdminViewProps> = ({
+  currentUser,
   teachers,
   students,
   testSubmissions,
@@ -159,11 +205,187 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onResolveExpel,
   onOpenGroupChat,
   onRefreshData,
+  onEnterAsStudent,
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'control_center' | 'database_management' | 'students' | 'teachers' | 'submissions' | 'youtube'
+    | 'control_center'
+    | 'feedback_inbox'
+    | 'sub_admins'
+    | 'cmdbek_ai_lab'
+    | 'streak_messenger'
+    | 'online_radar'
+    | 'economy_boosters'
+    | 'pvp_league'
+    | 'database_management'
+    | 'students'
+    | 'teachers'
+    | 'submissions'
+    | 'youtube'
+    | 'legend_podium_config'
+    | 'promo_and_awards'
+    | 'security_inspector'
   >('control_center');
   const { setIsBackgroundModalOpen } = useBackground();
+
+  // Legend Podium Profile state (stands above #1 on the Podium)
+  const [legendProfile, setLegendProfile] = useState<Student>(() => getLegendAdminStudentProfile());
+  const [legendName, setLegendName] = useState(legendProfile.name || 'Jasur');
+  const [legendSurname, setLegendSurname] = useState(legendProfile.surname || 'Sultonov (Admin)');
+  const [legendUsername, setLegendUsername] = useState(legendProfile.username || 'admin_podium_1');
+  const [legendAge, setLegendAge] = useState<number>(legendProfile.age || 21);
+  const [legendBio, setLegendBio] = useState(
+    legendProfile.bio ||
+      "DevMaster Academy Bosh Admini · Podium #1 Chempioni (Cheksiz XP & Tanga)"
+  );
+  const [legendFrame, setLegendFrame] = useState(
+    legendProfile.equippedFrame || 'frame-diamond-prism'
+  );
+  const [legendBadge, setLegendBadge] = useState(legendProfile.equippedBadge || 'LEGEND 💎');
+
+  // Mass Broadcast & Certificate Issuer state
+  const [broadcastXp, setBroadcastXp] = useState<number>(25);
+  const [broadcastCoins, setBroadcastCoins] = useState<number>(2);
+  const [broadcastTitle, setBroadcastTitle] = useState<string>('🎁 Akademiya Maxsus Sovg‘asi!');
+  const [broadcastText, setBroadcastText] = useState<string>(
+    "Faol o'qiganingiz uchun Admin tomonidan maxsus XP va Tanga mukofoti taqdim etildi!"
+  );
+  const [certTargetStudentId, setCertTargetStudentId] = useState<string>(students[0]?.id || 's-1');
+  const [certType, setCertType] = useState<'frontend' | 'backend' | 'fullstack'>(
+    'fullstack'
+  );
+  const [securityPassDrafts, setSecurityPassDrafts] = useState<Record<string, string>>({});
+
+  // Feedback Reports (Bug & Suggestion Inbox from Landing Page)
+  const [feedbackReports, setFeedbackReports] = useState<FeedbackReport[]>(() =>
+    getFeedbackReports()
+  );
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+
+  // Deputy / Sub-Admins & Task Delegation State
+  const [subAdminsList, setSubAdminsList] = useState<SubAdmin[]>(() => getSubAdmins());
+  const [subName, setSubName] = useState('');
+  const [subSurname, setSubSurname] = useState('');
+  const [subUsername, setSubUsername] = useState('');
+  const [subPassword, setSubPassword] = useState('');
+  const [subRoleTitle, setSubRoleTitle] = useState("Baza va Xabarlar Bo'yicha O'rinbosar");
+  const [subPermissions, setSubPermissions] = useState<SubAdminDepartment[]>([
+    'feedback_bugs',
+    'database',
+  ]);
+  const [taskTitleDrafts, setTaskTitleDrafts] = useState<Record<string, string>>({});
+  const [taskDeptDrafts, setTaskDeptDrafts] = useState<Record<string, SubAdminDepartment>>({});
+
+  const handleToggleSubAdminDept = (dept: SubAdminDepartment) => {
+    setSubPermissions((prev) =>
+      prev.includes(dept) ? prev.filter((d) => d !== dept) : [...prev, dept]
+    );
+  };
+
+  const handleCreateSubAdmin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subName.trim() || !subUsername.trim() || !subPassword.trim()) return;
+    addSubAdmin({
+      name: subName,
+      surname: subSurname,
+      username: subUsername,
+      password: subPassword,
+      roleTitle: subRoleTitle || "O'rinbosar Admin",
+      permissions: subPermissions.length > 0 ? subPermissions : ['feedback_bugs'],
+    });
+    setSubAdminsList(getSubAdmins());
+    setSubName('');
+    setSubSurname('');
+    setSubUsername('');
+    setSubPassword('');
+    recordAdminAction(`Yangi o'rinbosar admin (${subName}) qo'shildi va ish taqsimlandi!`);
+  };
+
+  // Admin Panel Embedded CMDbek Humorous AI State
+  const [adminCmdMood, setAdminCmdMood] = useState<CmdBekMood>('cool');
+  const [adminCmdInput, setAdminCmdInput] = useState('');
+  const [adminCmdLoading, setAdminCmdLoading] = useState(false);
+  const [adminCmdMessages, setAdminCmdMessages] = useState<
+    { id: string; sender: 'user' | 'cmdbek'; text: string; mood?: CmdBekMood; time: string }[]
+  >([
+    {
+      id: 'cmd-welcome',
+      sender: 'cmdbek',
+      text: "Salom Bosh Admin! Men CMDbek & Google Gemini AI — haqiqiy hazilkash AI yordamchingiz! Xohlagan savolingizga javob beraman, hazillar qilaman va o'zbek tilida ravon o'g'il bola ovozida gapiraman (faqat iqtisodiy va diniy mavzularda gaplashmayman)!",
+      mood: 'cool',
+      time: 'Hozir',
+    },
+  ]);
+
+  const speakBoyVoiceAdmin = async (text: string) => {
+    await speakUzbekBoyVoice(text, {
+      onStart: () => setAdminCmdMood('speaking'),
+      onEnd: () => setAdminCmdMood('happy'),
+    });
+  };
+
+  const handleSendAdminCmdChat = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const prompt = adminCmdInput.trim();
+    if (!prompt || adminCmdLoading) return;
+    setAdminCmdInput('');
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const nextMessages = [
+      ...adminCmdMessages,
+      { id: `u-${Date.now()}`, sender: 'user' as const, text: prompt, time: nowTime },
+    ];
+    setAdminCmdMessages(nextMessages);
+    setAdminCmdLoading(true);
+    setAdminCmdMood('thinking');
+
+    try {
+      const res = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: prompt,
+          studentName: `${currentUser?.name || OWNER_PROFILE.name} (Admin)`,
+          stage: 'fullstack',
+          persona: 'cmdbek',
+          model: 'gemini-3.8-flash',
+          history: nextMessages.slice(-12).map((m) => ({
+            role: m.sender === 'user' ? 'user' : 'model',
+            text: m.text,
+          })),
+        }),
+      });
+      const data = await res.json();
+      const reply =
+        data?.reply ||
+        "Bosh Admin, buyrug'ingizga tayyorman! Baza ham, o'rinbosar adminlar ham soatdek ishlayapti!";
+      const detectedMood: CmdBekMood = (data?.mood as CmdBekMood) || 'laughing';
+      setAdminCmdMood(detectedMood);
+      const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setAdminCmdMessages((prev) => [
+        ...prev,
+        {
+          id: `b-${Date.now()}`,
+          sender: 'cmdbek',
+          text: reply,
+          mood: detectedMood,
+          time: replyTime,
+        },
+      ]);
+      speakBoyVoiceAdmin(reply);
+    } catch {
+      setAdminCmdMood('oops');
+    } finally {
+      setAdminCmdLoading(false);
+    }
+  };
+
+  // Admin Streak Warning & Custom Message Sender State
+  const [msgTargetStudentId, setMsgTargetStudentId] = useState<string>(students[0]?.id || 'all');
+  const [msgTitle, setMsgTitle] = useState<string>('⚠️ Kunlik Streak Ogohlantirishi!');
+  const [msgBody, setMsgBody] = useState<string>(
+    'Siz bugun 1 kunlik streakni o‘tkazib yubordingiz! Reytingda pastga tushmaslik uchun darhol kamida 1 ta darsni yakunlang.'
+  );
+  const [msgType, setMsgType] = useState<'streak_warning' | 'admin_notice'>('streak_warning');
+  const [inspectingStudent, setInspectingStudent] = useState<Student | null>(null);
 
   // YouTube player state
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('https://www.youtube.com/embed/kUMe1FH4CHE');
@@ -208,20 +430,25 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [tPassword, setTPassword] = useState('');
   const [tSpecialty, setTSpecialty] = useState('Frontend Mentor');
 
-  // Admin Action Audit Log (Faqat Adminning o'zi bajargan amallar)
+  // Admin Action Audit Log
   const [auditLogs, setAuditLogs] = useState<{ id: string; action: string; time: string; admin: string }[]>([
     {
       id: 'log-1',
       action: `Yagona Markaziy Baza (${getActiveBackendName().toUpperCase()}) barcha kompyuterlar uchun ulandi`,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      admin: `${OWNER_PROFILE.name} (Admin)`,
+      admin: `${currentUser?.name || OWNER_PROFILE.name} (${currentUser?.role === 'sub_admin' ? "O'rinbosar" : 'Admin'})`,
     },
   ]);
 
   const recordAdminAction = (actionText: string) => {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setAuditLogs((prev) => [
-      { id: `log-${Date.now()}-${Math.random()}`, action: actionText, time, admin: `${OWNER_PROFILE.name} (Admin)` },
+      {
+        id: `log-${Date.now()}-${Math.random()}`,
+        action: actionText,
+        time,
+        admin: `${currentUser?.name || OWNER_PROFILE.name} (${currentUser?.role === 'sub_admin' ? "O'rinbosar" : 'Admin'})`,
+      },
       ...prev.slice(0, 14),
     ]);
     setDbStatusAlert(actionText);
@@ -229,6 +456,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const triggerRefresh = () => {
     setGeneratedTestsList([...getGeneratedTests()]);
+    setFeedbackReports([...getFeedbackReports()]);
+    setSubAdminsList([...getSubAdmins()]);
     if (onRefreshData) {
       onRefreshData();
     }
@@ -389,6 +618,17 @@ export const AdminView: React.FC<AdminViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
+            {onEnterAsStudent && (
+              <button
+                onClick={onEnterAsStudent}
+                className="duo-btn duo-btn-gold px-4 py-2 text-xs shadow-lg shadow-[#ffd23f]/30"
+                title="Podiumda #1 o'rinda cheksiz XP va cheksiz Tanga bilan o'quvchi sifatida kirish (faqat sizning ekraningizda ko'rinadi)"
+              >
+                <Crown className="w-4 h-4" />
+                <span>👑 O&apos;quvchi Sifatida Kirish (Podium #1 · ∞ XP · ∞ 🪙)</span>
+              </button>
+            )}
+
             <button
               onClick={() => setShowAddStudentModal(true)}
               className="duo-btn duo-btn-mint px-4 py-2 text-xs"
@@ -533,96 +773,1208 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
       {/* Main Grid: Sidebar + Active View */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Sidebar Menu */}
+        {/* Left Sidebar Menu (16-Bo'limli Admin Labirint Boshqaruv Markazi) */}
         <aside className="lg:col-span-3 space-y-3">
-          <div className="aurora-card p-4 space-y-2">
-            <p className="text-[11px] font-black uppercase tracking-wider opacity-50 px-2 pb-1">
-              Admin Boshqaruvi
+          <div className="aurora-card p-4 space-y-1.5">
+            <p className="text-[11px] font-black uppercase tracking-wider text-[#ffd23f] px-2 pb-1">
+              Admin Labirint Markazi (16 Bo&apos;lim)
             </p>
             <button
               onClick={() => setActiveTab('control_center')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
                 activeTab === 'control_center'
                   ? 'bg-gradient-to-r from-[#ff6b86] to-[#ff8a3d] text-white shadow-lg'
                   : 'hover:bg-white/5 opacity-75 hover:opacity-100'
               }`}
             >
               <Sliders className="w-4 h-4 shrink-0" />
-              <span>Shaxsiy Boshqaruv Pulti</span>
+              <span>1. Shaxsiy Boshqaruv Pulti</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('streak_messenger')}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
+                activeTab === 'streak_messenger'
+                  ? 'bg-gradient-to-r from-[#ff8a3d] to-[#ffd23f] text-[#0a0912] shadow-lg'
+                  : 'hover:bg-white/5 opacity-75 hover:opacity-100'
+              }`}
+            >
+              <Flame className="w-4 h-4 shrink-0" />
+              <span>2. Streak &amp; Xabar Yuborish</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('online_radar')}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
+                activeTab === 'online_radar'
+                  ? 'bg-gradient-to-r from-[#22c55e] to-[#3ee6c4] text-[#052922] shadow-lg'
+                  : 'hover:bg-white/5 opacity-75 hover:opacity-100'
+              }`}
+            >
+              <Wifi className="w-4 h-4 shrink-0" />
+              <span>3. Online / Offline Radar</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('economy_boosters')}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
+                activeTab === 'economy_boosters'
+                  ? 'bg-gradient-to-r from-[#b6f03c] to-[#3ee6c4] text-[#052922] shadow-lg'
+                  : 'hover:bg-white/5 opacity-75 hover:opacity-100'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 shrink-0" />
+              <span>4. 100 Do&apos;kon, Potion &amp; Ramka</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('pvp_league')}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
+                activeTab === 'pvp_league'
+                  ? 'bg-gradient-to-r from-[#ff6b86] to-[#ffd23f] text-[#0a0912] shadow-lg'
+                  : 'hover:bg-white/5 opacity-75 hover:opacity-100'
+              }`}
+            >
+              <Swords className="w-4 h-4 shrink-0" />
+              <span>5. PvP &amp; AI Liga Nazorati</span>
             </button>
 
             <button
               onClick={() => setActiveTab('database_management')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
                 activeTab === 'database_management'
                   ? 'bg-gradient-to-r from-[#3ee6c4] to-[#17b897] text-[#052922] shadow-lg'
                   : 'hover:bg-white/5 opacity-75 hover:opacity-100'
               }`}
             >
               <Database className="w-4 h-4 shrink-0" />
-              <span>Baza & Jadval Boshqaruvi</span>
+              <span>6. Baza &amp; Jadval Boshqaruvi</span>
             </button>
 
             <button
               onClick={() => setActiveTab('students')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
                 activeTab === 'students'
                   ? 'bg-gradient-to-r from-[#ffd23f] to-[#ff9f1c] text-[#2b1d00] shadow-lg'
                   : 'hover:bg-white/5 opacity-75 hover:opacity-100'
               }`}
             >
               <BarChart3 className="w-4 h-4 shrink-0" />
-              <span>Talabalar & Foiz Diagrammasi</span>
+              <span>7. Talabalar Diagrammasi</span>
             </button>
 
             <button
               onClick={() => setActiveTab('teachers')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
                 activeTab === 'teachers'
                   ? 'bg-gradient-to-r from-[#b6f03c] to-[#3ee6c4] text-[#052922] shadow-lg'
                   : 'hover:bg-white/5 opacity-75 hover:opacity-100'
               }`}
             >
               <Users className="w-4 h-4 shrink-0" />
-              <span>Ustozlar ({teachers.length})</span>
+              <span>8. Ustozlar ({teachers.length})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('submissions')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
                 activeTab === 'submissions'
                   ? 'bg-gradient-to-r from-[#ff8a3d] to-[#ffd23f] text-[#2b1d00] shadow-lg'
                   : 'hover:bg-white/5 opacity-75 hover:opacity-100'
               }`}
             >
               <Award className="w-4 h-4 shrink-0" />
-              <span>Test Natijalari ({testSubmissions.length})</span>
+              <span>9. Test Natijalari ({testSubmissions.length})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('youtube')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
                 activeTab === 'youtube'
                   ? 'bg-gradient-to-r from-[#ff6b86] to-[#ff4d6d] text-white shadow-lg'
                   : 'hover:bg-white/5 opacity-75 hover:opacity-100'
               }`}
             >
               <Youtube className="w-4 h-4 shrink-0" />
-              <span>YouTube Darsliklar</span>
+              <span>10. YouTube Darsliklar</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('feedback_inbox')}
+              className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
+                activeTab === 'feedback_inbox'
+                  ? 'bg-gradient-to-r from-[#ff6b86] via-[#ff8a3d] to-[#ffd23f] text-[#0a0912] shadow-lg'
+                  : 'hover:bg-white/5 opacity-75 hover:opacity-100'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <Bug className="w-4 h-4 shrink-0" />
+                <span>11. Xabarlar (Bug &amp; Takliflar)</span>
+              </span>
+              {feedbackReports.length > 0 && (
+                <span className="px-2 py-0.5 rounded-lg bg-[#ff6b86]/25 text-[#ffd23f] text-[10px] font-black">
+                  {feedbackReports.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('sub_admins')}
+              className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
+                activeTab === 'sub_admins'
+                  ? 'bg-gradient-to-r from-[#3ee6c4] to-[#ffd23f] text-[#0a0912] shadow-lg'
+                  : 'hover:bg-white/5 opacity-75 hover:opacity-100'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <Briefcase className="w-4 h-4 shrink-0" />
+                <span>12. O&apos;rinbosar Adminlar</span>
+              </span>
+              <span className="px-2 py-0.5 rounded-lg bg-white/10 text-[10px] font-black">
+                {subAdminsList.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('cmdbek_ai_lab')}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
+                activeTab === 'cmdbek_ai_lab'
+                  ? 'bg-gradient-to-r from-[#a855f7] via-[#ff6b86] to-[#ffd23f] text-white shadow-lg'
+                  : 'hover:bg-white/5 opacity-75 hover:opacity-100'
+              }`}
+            >
+              <Bot className="w-4 h-4 shrink-0" />
+              <span>13. CMDbek Hazilkash AI</span>
+            </button>
+
+            <button
+              onClick={() => {
+                const latest = getLegendAdminStudentProfile();
+                setLegendProfile(latest);
+                setLegendName(latest.name || 'Jasur');
+                setLegendSurname(latest.surname || 'Sultonov (Admin)');
+                setLegendUsername(latest.username || 'admin_podium_1');
+                setLegendAge(latest.age || 21);
+                setLegendBio(latest.bio || '');
+                setLegendFrame(latest.equippedFrame || 'frame-diamond-prism');
+                setLegendBadge(latest.equippedBadge || 'LEGEND 💎');
+                setActiveTab('legend_podium_config');
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
+                activeTab === 'legend_podium_config'
+                  ? 'bg-gradient-to-r from-[#ffd23f] via-[#3ee6c4] to-[#ff6b86] text-[#0a0912] shadow-lg'
+                  : 'hover:bg-white/5 opacity-75 hover:opacity-100'
+              }`}
+            >
+              <Crown className="w-4 h-4 shrink-0" />
+              <span>14. 👑 LEGEND Podium Profili</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('promo_and_awards')}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
+                activeTab === 'promo_and_awards'
+                  ? 'bg-gradient-to-r from-[#b6f03c] to-[#ffd23f] text-[#0a0912] shadow-lg'
+                  : 'hover:bg-white/5 opacity-75 hover:opacity-100'
+              }`}
+            >
+              <Award className="w-4 h-4 shrink-0" />
+              <span>15. 🎁 Ommaviy Bonus &amp; Diplom</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('security_inspector')}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
+                activeTab === 'security_inspector'
+                  ? 'bg-gradient-to-r from-[#3ee6c4] to-[#ff6b86] text-[#0a0912] shadow-lg'
+                  : 'hover:bg-white/5 opacity-75 hover:opacity-100'
+              }`}
+            >
+              <Shield className="w-4 h-4 shrink-0" />
+              <span>16. 🛡️ Parol &amp; Xavfsizlik</span>
             </button>
           </div>
 
-          <div className="aurora-card p-5 text-center space-y-2">
-            <AuroraMascot mood="excited" size={76} className="mx-auto" />
-            <h4 className="text-sm font-black">Admin Boshqaruvi</h4>
+          <div
+            onClick={() => setActiveTab('cmdbek_ai_lab')}
+            title="CMDbek AI bilan suhbatlashish uchun bosing"
+            className="aurora-card p-5 text-center space-y-2 cursor-pointer hover:border-[#3ee6c4] hover:scale-[1.01] transition-all"
+          >
+            <CmdBekMascot mood={adminCmdMood} size={76} className="mx-auto" />
+            <h4 className="text-sm font-black text-[#3ee6c4]">CMDbek AI (Ustiga bosing!)</h4>
             <p className="text-xs opacity-70">
-              Barcha vazifalar bevosita Admin tomonidan markaziy bazada bajariladi.
+              Bug &amp; Takliflar, O&apos;rinbosar Adminlar, Ish Taqsimoti, Podium #1 Kirish va CMDbek AI to&apos;liq nazoratda.
             </p>
           </div>
         </aside>
 
         {/* Right Content Area */}
         <div className="lg:col-span-9 space-y-6">
+          {/* NEW TAB 11: BUG & SUGGESTION FEEDBACK INBOX (FROM LANDING PAGE) */}
+          {activeTab === 'feedback_inbox' && (
+            <div className="space-y-6">
+              <div className="aurora-card p-6 space-y-5 border-[#ff6b86]/40">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-[#ff6b86]/20 text-[#ff6b86] flex items-center justify-center">
+                      <Bug className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black">
+                        Xabarlar: Bosh Sahifadan Kelgan Bug (Xatolik) va Takliflar ({feedbackReports.length})
+                      </h3>
+                      <p className="text-xs opacity-70">
+                        Foydalanuvchilar yuborgan xatoliklar (1-2 kun ichida) va takliflar (3-4 kun ichida) rasm/video fayllari bilan shu yerda saqlanadi
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {feedbackReports.length === 0 ? (
+                  <div className="p-10 rounded-3xl bg-white/5 border border-white/10 text-center space-y-2">
+                    <Lightbulb className="w-10 h-10 text-[#ffd23f] mx-auto opacity-80" />
+                    <p className="text-sm font-black">Hozircha yangi Bug yoki Taklif kelib tushmagan</p>
+                    <p className="text-xs opacity-65">
+                      Bosh sahifa pastidagi &quot;Xatoliklar yoki G&apos;oyalarni Kiritish&quot; formasi orqali yuborilgan xabarlar shu yerda paydo bo&apos;ladi.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {feedbackReports.map((rep) => (
+                      <div
+                        key={rep.id}
+                        className={`p-5 rounded-3xl border space-y-4 ${
+                          rep.type === 'bug'
+                            ? 'bg-[#ff6b86]/10 border-[#ff6b86]/35'
+                            : 'bg-[#3ee6c4]/10 border-[#3ee6c4]/35'
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span
+                                className={`px-3 py-1 rounded-xl text-[11px] font-black uppercase ${
+                                  rep.type === 'bug'
+                                    ? 'bg-[#ff6b86] text-white'
+                                    : 'bg-[#3ee6c4] text-[#052922]'
+                                }`}
+                              >
+                                {rep.type === 'bug' ? '🐞 Bug / Xatolik (1-2 kun)' : '💡 Taklif / G\'oya (3-4 kun)'}
+                              </span>
+                              <span className="text-sm font-black">
+                                {rep.firstName} {rep.lastName}
+                              </span>
+                              <span className="px-2.5 py-0.5 rounded-lg bg-black/30 border border-white/10 text-xs font-mono text-[#ffd23f]">
+                                📞 / ✉️ {rep.contact}
+                              </span>
+                              <span className="text-[11px] opacity-60">{rep.createdAt}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <select
+                              value={rep.status}
+                              onChange={(e) => {
+                                updateFeedbackReport(rep.id, {
+                                  status: e.target.value as 'new' | 'in_progress' | 'resolved',
+                                });
+                                setFeedbackReports(getFeedbackReports());
+                                recordAdminAction(`${rep.firstName} murojaati holati yangilandi.`);
+                              }}
+                              className="aurora-input !py-1.5 !px-3 !w-auto text-xs font-bold"
+                            >
+                              <option value="new">🆕 Yangi</option>
+                              <option value="in_progress">⏳ Ko&apos;rib chiqilmoqda</option>
+                              <option value="resolved">✅ Hal qilindi</option>
+                            </select>
+
+                            <select
+                              value={rep.assignedAdminId || ''}
+                              onChange={(e) => {
+                                const foundSa = subAdminsList.find((s) => s.id === e.target.value);
+                                updateFeedbackReport(rep.id, {
+                                  assignedAdminId: e.target.value || undefined,
+                                  assignedAdminName: foundSa ? `${foundSa.name} ${foundSa.surname}` : undefined,
+                                });
+                                setFeedbackReports(getFeedbackReports());
+                                recordAdminAction(`Murojaat o'rinbosar adminga biriktirildi.`);
+                              }}
+                              className="aurora-input !py-1.5 !px-3 !w-auto text-xs"
+                            >
+                              <option value="">👤 O&apos;rinbosarga biriktirish...</option>
+                              {subAdminsList.map((sa) => (
+                                <option key={sa.id} value={sa.id}>
+                                  {sa.name} {sa.surname} ({sa.roleTitle})
+                                </option>
+                              ))}
+                            </select>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                deleteFeedbackReport(rep.id);
+                                setFeedbackReports(getFeedbackReports());
+                                recordAdminAction(`${rep.firstName} murojaati o'chirildi.`);
+                              }}
+                              className="p-2 rounded-xl bg-red-500/20 text-red-300 hover:bg-red-500/30 cursor-pointer"
+                              title="O'chirish"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="text-xs sm:text-sm leading-relaxed bg-black/25 p-4 rounded-2xl border border-white/10">
+                          {rep.message}
+                        </p>
+
+                        {rep.mediaUrl && (
+                          <div className="space-y-1.5">
+                            <span className="text-[11px] font-bold opacity-75 block">
+                              📎 Biriktirilgan media ({rep.mediaName || rep.mediaType}):
+                            </span>
+                            {rep.mediaType === 'video' ? (
+                              <video
+                                src={rep.mediaUrl}
+                                controls
+                                className="max-h-64 rounded-2xl border border-white/15 bg-black"
+                              />
+                            ) : (
+                              <img
+                                src={rep.mediaUrl}
+                                alt="Bug media"
+                                className="max-h-64 rounded-2xl border border-white/15 object-contain bg-black/40"
+                              />
+                            )}
+                          </div>
+                        )}
+
+                        {rep.adminReply && (
+                          <div className="p-3.5 rounded-2xl bg-[#ffd23f]/15 border border-[#ffd23f]/40 text-xs">
+                            <span className="font-black text-[#ffd23f] block mb-1">
+                              Admin / O&apos;rinbosar Javobi:
+                            </span>
+                            <p>{rep.adminReply}</p>
+                          </div>
+                        )}
+
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="text"
+                            value={replyDrafts[rep.id] || ''}
+                            onChange={(e) =>
+                              setReplyDrafts((prev: Record<string, string>) => ({ ...prev, [rep.id]: e.target.value }))
+                            }
+                            placeholder={`${rep.firstName} uchun javob yoki izoh yozing (tel/gmail: ${rep.contact})...`}
+                            className="aurora-input flex-1 text-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const replyText = (replyDrafts[rep.id] || '').trim();
+                              if (!replyText) return;
+                              updateFeedbackReport(rep.id, {
+                                adminReply: replyText,
+                                status: 'resolved',
+                              });
+                              setFeedbackReports(getFeedbackReports());
+                              setReplyDrafts((prev: Record<string, string>) => ({ ...prev, [rep.id]: '' }));
+                              recordAdminAction(
+                                `${rep.firstName} (${rep.contact}) murojaatiga javob saqlandi!`
+                              );
+                            }}
+                            className="duo-btn duo-btn-mint px-4 py-2 text-xs shrink-0"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Javobni Saqlash</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* NEW TAB 12: SUB-ADMINS (O'RINBOSAR ADMINLAR) & TASK DELEGATION */}
+          {activeTab === 'sub_admins' && (
+            <div className="space-y-6">
+              <div className="aurora-card p-6 space-y-5 border-[#3ee6c4]/40">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-[#3ee6c4]/20 text-[#3ee6c4] flex items-center justify-center">
+                    <Briefcase className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black">
+                      O&apos;rinbosar Adminlar Yaratish va Ish Taqsimoti ({subAdminsList.length})
+                    </h3>
+                    <p className="text-xs opacity-70">
+                      Bosh admin o&apos;ziga yordamchi o&apos;rinbosar adminlar qo&apos;shishi va ularga vazifa taqsimlashi mumkin (masalan: biriga Baza nazorati, boshqasiga Bug &amp; Takliflarga javob berish)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Add Sub-Admin Form */}
+                <form
+                  onSubmit={handleCreateSubAdmin}
+                  className="p-5 rounded-3xl bg-white/5 border border-white/10 space-y-4"
+                >
+                  <h4 className="text-sm font-black text-[#ffd23f] flex items-center gap-2">
+                    <UserPlus className="w-4 h-4" />
+                    <span>Yangi O&apos;rinbosar Admin Qo&apos;shish</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <input
+                      type="text"
+                      value={subName}
+                      onChange={(e) => setSubName(e.target.value)}
+                      placeholder="Ismi (masalan: Sardor)"
+                      required
+                      className="aurora-input text-xs"
+                    />
+                    <input
+                      type="text"
+                      value={subSurname}
+                      onChange={(e) => setSubSurname(e.target.value)}
+                      placeholder="Familiyasi (masalan: Karimov)"
+                      className="aurora-input text-xs"
+                    />
+                    <input
+                      type="text"
+                      value={subRoleTitle}
+                      onChange={(e) => setSubRoleTitle(e.target.value)}
+                      placeholder="Lavozimi (masalan: Bug & Baza O'rinbosari)"
+                      className="aurora-input text-xs"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      value={subUsername}
+                      onChange={(e) => setSubUsername(e.target.value)}
+                      placeholder="Kirish Login / Username"
+                      required
+                      className="aurora-input text-xs font-mono"
+                    />
+                    <input
+                      type="text"
+                      value={subPassword}
+                      onChange={(e) => setSubPassword(e.target.value)}
+                      placeholder="Kirish Paroli"
+                      required
+                      className="aurora-input text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold opacity-80 block mb-2">
+                      Biriktiriladigan Bo&apos;limlar (Ish Taqsimoti):
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {(
+                        [
+                          { id: 'database', label: '🗄️ Baza & Jadval Boshqaruvi' },
+                          { id: 'feedback_bugs', label: '🐞 Bug & Takliflarga Javob Berish' },
+                          { id: 'economy_shop', label: '🛒 Do\'kon, Potion & Tanga' },
+                          { id: 'pvp_league', label: '⚔️ PvP & AI Liga Nazorati' },
+                          { id: 'students_teachers', label: '👨‍🏫 Talabalar & Ustozlar' },
+                          { id: 'streak_messages', label: '🔥 Streak & Xabarlar' },
+                          { id: 'cmdbek_ai', label: '🤖 CMDbek AI Nazorati' },
+                        ] as { id: SubAdminDepartment; label: string }[]
+                      ).map((dep) => {
+                        const active = subPermissions.includes(dep.id);
+                        return (
+                          <button
+                            key={dep.id}
+                            type="button"
+                            onClick={() => handleToggleSubAdminDept(dep.id)}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
+                              active
+                                ? 'bg-[#3ee6c4]/25 border-[#3ee6c4] text-[#3ee6c4]'
+                                : 'bg-white/5 border-white/10 opacity-70 hover:opacity-100'
+                            }`}
+                          >
+                            {active ? '✓ ' : '+ '}
+                            {dep.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <button type="submit" className="duo-btn duo-btn-mint px-5 py-2.5 text-xs">
+                    <UserPlus className="w-4 h-4" />
+                    <span>O&apos;rinbosar Adminni Yaratish va Ish Biriktirish</span>
+                  </button>
+                </form>
+
+                {/* List of Sub-Admins and Their Assigned Tasks */}
+                <div className="space-y-4">
+                  {subAdminsList.map((sa) => (
+                    <div
+                      key={sa.id}
+                      className="p-5 rounded-3xl bg-black/25 border border-white/15 space-y-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-base font-black text-white">
+                              {sa.name} {sa.surname}
+                            </h4>
+                            <span className="px-2.5 py-0.5 rounded-lg bg-[#ffd23f]/20 text-[#ffd23f] text-[11px] font-black">
+                              {sa.roleTitle}
+                            </span>
+                          </div>
+                          <p className="text-xs opacity-70 font-mono mt-0.5">
+                            Login: <strong className="text-[#3ee6c4]">{sa.username}</strong> • Parol:{' '}
+                            <strong className="text-[#ff8a3d]">{sa.password}</strong>
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            deleteSubAdmin(sa.id);
+                            setSubAdminsList(getSubAdmins());
+                            recordAdminAction(`O'rinbosar admin ${sa.name} o'chirildi.`);
+                          }}
+                          className="duo-btn duo-btn-coral px-3 py-1.5 text-xs"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>O&apos;chirish</span>
+                        </button>
+                      </div>
+
+                      {/* Assigned Departments */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {sa.permissions.map((d: SubAdminDepartment) => (
+                          <span
+                            key={d}
+                            className="px-3 py-1 rounded-xl bg-white/10 border border-white/15 text-[11px] font-bold text-[#3ee6c4]"
+                          >
+                            📌 Bo&apos;lim: {d.toUpperCase()}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Tasks List */}
+                      <div className="space-y-2">
+                        <p className="text-xs font-black uppercase tracking-wider opacity-75 flex items-center gap-1.5">
+                          <FileCheck className="w-3.5 h-3.5 text-[#ffd23f]" />
+                          <span>Biriktirilgan Vazifalar ({sa.assignedTasks.length}):</span>
+                        </p>
+                        {sa.assignedTasks.map((task) => (
+                          <div
+                            key={task.id}
+                            className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3 text-xs"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <input
+                                type="checkbox"
+                                checked={task.completed}
+                                onChange={() => {
+                                  toggleSubAdminTask(sa.id, task.id);
+                                  setSubAdminsList(getSubAdmins());
+                                }}
+                                className="w-4 h-4 accent-[#3ee6c4] cursor-pointer"
+                              />
+                              <div>
+                                <p
+                                  className={`font-bold ${
+                                    task.completed ? 'line-through opacity-50' : ''
+                                  }`}
+                                >
+                                  {task.title}
+                                </p>
+                                <span className="text-[10px] opacity-60">
+                                  Bo&apos;lim: {task.department} • {task.createdAt}
+                                </span>
+                              </div>
+                            </div>
+                            <span
+                              className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black ${
+                                task.completed
+                                  ? 'bg-[#3ee6c4]/20 text-[#3ee6c4]'
+                                  : 'bg-[#ffd23f]/20 text-[#ffd23f]'
+                              }`}
+                            >
+                              {task.completed ? 'Bajarildi' : 'Jarayonda'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Add New Task to This Sub-Admin */}
+                      <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-white/10">
+                        <select
+                          value={taskDeptDrafts[sa.id] || 'feedback_bugs'}
+                          onChange={(e) =>
+                            setTaskDeptDrafts((prev: Record<string, SubAdminDepartment>) => ({
+                              ...prev,
+                              [sa.id]: e.target.value as SubAdminDepartment,
+                            }))
+                          }
+                          className="aurora-input !py-2 !px-3 sm:!w-52 text-xs"
+                        >
+                          <option value="database">🗄️ Baza Boshqaruvi</option>
+                          <option value="feedback_bugs">🐞 Bug &amp; Takliflar</option>
+                          <option value="economy_shop">🛒 Do&apos;kon &amp; Tanga</option>
+                          <option value="pvp_league">⚔️ PvP Liga</option>
+                          <option value="students_teachers">👨‍🏫 Talabalar &amp; Ustozlar</option>
+                          <option value="streak_messages">🔥 Streak &amp; Xabarlar</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={taskTitleDrafts[sa.id] || ''}
+                          onChange={(e) =>
+                            setTaskTitleDrafts((prev: Record<string, string>) => ({ ...prev, [sa.id]: e.target.value }))
+                          }
+                          placeholder={`${sa.name}ga yangi topshiriq yozing (masalan: Buglarga javob yoz va bazani tekshir)...`}
+                          className="aurora-input flex-1 text-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const title = (taskTitleDrafts[sa.id] || '').trim();
+                            if (!title) return;
+                            const dept = taskDeptDrafts[sa.id] || 'feedback_bugs';
+                            assignSubAdminTask(sa.id, title, dept);
+                            setSubAdminsList(getSubAdmins());
+                            setTaskTitleDrafts((prev: Record<string, string>) => ({ ...prev, [sa.id]: '' }));
+                            recordAdminAction(`${sa.name}ga yangi vazifa yuklatildi: "${title}"`);
+                          }}
+                          className="duo-btn duo-btn-gold px-4 py-2 text-xs shrink-0"
+                        >
+                          + Vazifa Yuklash
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* NEW TAB 13: CMDBEK HUMOROUS AI LAB IN ADMIN PANEL */}
+          {activeTab === 'cmdbek_ai_lab' && (
+            <div className="space-y-6">
+              <div className="aurora-card p-6 space-y-5 border-[#a855f7]/40">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <CmdBekMascot mood={adminCmdMood} size={76} />
+                    <div>
+                      <h3 className="text-lg font-black flex items-center gap-2">
+                        <span>CMDbek &amp; Google Gemini — Adminning Hazilkash AI Yordamchisi</span>
+                        <span className="px-2.5 py-0.5 rounded-lg bg-[#3ee6c4]/20 text-[#3ee6c4] text-[10px] font-black">
+                          Google Gemini + 13 Hissiyot + Hazillar + O&apos;g&apos;il Bola Ovozi
+                        </span>
+                      </h3>
+                      <p className="text-xs opacity-75 mt-1">
+                        Xohlagan savolingizga Google Gemini yordamida hazil-mutoyiba bilan javob beradi va ravon o&apos;zbek o&apos;g&apos;il bola ovozida gapiradi (iqtisodiy va diniy mavzulardan tashqari)!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Emotion Preview Switcher (All 13 Sticker Emotions) */}
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-[#ffd23f] block">
+                    CMDbekning Barcha 13 ta Hissiyot Holatlari (Bosib sinab ko&apos;ring):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(
+                      [
+                        { id: 'idle', label: '😊 Oddiy' },
+                        { id: 'happy', label: '😄 Xursand' },
+                        { id: 'hello', label: '👋 Qo\'l ko\'targan' },
+                        { id: 'celebrating', label: '🎉 Salyut' },
+                        { id: 'angry', label: '😡 Jahli chiqqan' },
+                        { id: 'laughing', label: '😂 Qahqaha (Kulgan)' },
+                        { id: 'thinking', label: '🤔 O\'ylanayotgan' },
+                        { id: 'speaking', label: '🗣️ Gapirayotgan' },
+                        { id: 'surprised', label: '😲 Hayron' },
+                        { id: 'cool', label: '😎 Krutoy' },
+                        { id: 'coding', label: '💻 Kod yozayotgan' },
+                        { id: 'sleepy', label: '😴 Uyqusiragan' },
+                        { id: 'oops', label: '😅 Oops / Xato' },
+                      ] as { id: CmdBekMood; label: string }[]
+                    ).map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setAdminCmdMood(m.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
+                          adminCmdMood === m.id
+                            ? 'bg-gradient-to-r from-[#ff6b86] to-[#ffd23f] text-[#0a0912] border-transparent shadow-md'
+                            : 'bg-white/5 border-white/10 opacity-75 hover:opacity-100'
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Chat Messages */}
+                <div className="h-80 overflow-y-auto p-4 rounded-3xl bg-black/35 border border-white/10 space-y-3">
+                  {adminCmdMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[82%] p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
+                          msg.sender === 'user'
+                            ? 'bg-gradient-to-r from-[#ff6b86] to-[#ff8a3d] text-white font-bold'
+                            : 'bg-white/10 border border-white/15 text-white'
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                    </div>
+                  ))}
+                  {adminCmdLoading && (
+                    <div className="text-xs text-[#ffd23f] font-bold animate-pulse">
+                      🤔 CMDbek hazil o&apos;ylab javob tayyorlamoqda...
+                    </div>
+                  )}
+                </div>
+
+                {/* Chat Input */}
+                <form onSubmit={handleSendAdminCmdChat} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={adminCmdInput}
+                    onChange={(e) => setAdminCmdInput(e.target.value)}
+                    placeholder="CMDbekdan istalgan narsani so'rang (hazil, sayt holati, talabalar yoki oldingi suhbatingiz)..."
+                    className="aurora-input flex-1 text-xs sm:text-sm"
+                  />
+                  <button
+                    type="submit"
+                    disabled={adminCmdLoading}
+                    className="duo-btn duo-btn-gold px-5 py-2.5 text-xs shrink-0"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>Yuborish</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* NEW TAB 2: STREAK WARNING & PROFILE INBOX MESSENGER */}
+          {activeTab === 'streak_messenger' && (
+            <div className="space-y-6">
+              <div className="aurora-card p-6 space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-[#ff8a3d]/20 text-[#ff8a3d] flex items-center justify-center">
+                    <Flame className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black">
+                      Kunlik Streak Ogohlantirishi va Profil Xabarlari Yuborish
+                    </h3>
+                    <p className="text-xs opacity-70">
+                      1 kunlik streak ololmay qolgan o&apos;quvchining Profil sahifasidagi Xabarlar qutisiga ogohlantirish yuborish
+                    </p>
+                  </div>
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!msgTitle.trim() || !msgBody.trim()) return;
+                    if (msgTargetStudentId === 'all') {
+                      students.forEach((st) => {
+                        sendAdminMessageToStudent({
+                          studentId: st.id,
+                          title: msgTitle.trim(),
+                          text: msgBody.trim(),
+                          type: msgType,
+                        });
+                      });
+                      recordAdminAction(
+                        `Barcha ${students.length} nafar o'quvchi profiliga "${msgTitle}" xabari yuborildi!`
+                      );
+                    } else {
+                      const target = students.find((s) => s.id === msgTargetStudentId) || students[0];
+                      if (target) {
+                        sendAdminMessageToStudent({
+                          studentId: target.id,
+                          title: msgTitle.trim(),
+                          text: msgBody.trim(),
+                          type: msgType,
+                        });
+                        recordAdminAction(
+                          `${target.name} ${target.surname} profiliga "${msgTitle}" xabari yuborildi!`
+                        );
+                      }
+                    }
+                    triggerRefresh();
+                  }}
+                  className="space-y-4 text-xs"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold mb-1">Qabul qiluvchi o&apos;quvchi:</label>
+                      <select
+                        value={msgTargetStudentId}
+                        onChange={(e) => setMsgTargetStudentId(e.target.value)}
+                        className="aurora-input py-2 text-xs font-bold"
+                      >
+                        <option value="all">📢 Barcha O&apos;quvchilarga ({students.length} nafar)</option>
+                        {students.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name} {s.surname} (@{s.username} — Streak: {Math.max(1, (s.completedLessons?.length || 0) + 1)} kun)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold mb-1">Xabar turi:</label>
+                      <select
+                        value={msgType}
+                        onChange={(e) =>
+                          setMsgType(e.target.value as 'streak_warning' | 'admin_notice')
+                        }
+                        className="aurora-input py-2 text-xs font-bold"
+                      >
+                        <option value="streak_warning">🔥 Kunlik Streak Ogohlantirishi</option>
+                        <option value="admin_notice">🔔 Rasmiy Admin Xabari</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Xabar sarlavhasi:</label>
+                    <input
+                      type="text"
+                      value={msgTitle}
+                      onChange={(e) => setMsgTitle(e.target.value)}
+                      className="aurora-input py-2 text-xs font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Xabar matni (O&apos;quvchi profilida chiqadi):</label>
+                    <textarea
+                      rows={3}
+                      value={msgBody}
+                      onChange={(e) => setMsgBody(e.target.value)}
+                      className="aurora-input py-2 text-xs"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMsgType('streak_warning');
+                        setMsgTitle('🔥 1 Kunlik Streak Uzilish Xavfi!');
+                        setMsgBody(
+                          'Diqqat! Siz bugun 1 kunlik streakni ololmay qoldingiz. Darhol O‘quv sahifasiga kirib kamida 1 ta darsni yakunlang!'
+                        );
+                      }}
+                      className="duo-btn duo-btn-surface text-xs !py-2 !px-3"
+                    >
+                      Shablon 1: Streak uzildi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMsgType('admin_notice');
+                        setMsgTitle('🏆 Liga PvP Bellashuviga Taklif!');
+                        setMsgBody(
+                          'Asosiy -> Liga bo‘limida 30 savollik PvP bellashuvda qatnashib +30 XP va +2 Tanga yutib oling!'
+                        );
+                      }}
+                      className="duo-btn duo-btn-surface text-xs !py-2 !px-3"
+                    >
+                      Shablon 2: PvP Liga chorlovi
+                    </button>
+                  </div>
+
+                  <button type="submit" className="duo-btn duo-btn-coral w-full py-3 text-xs sm:text-sm">
+                    <Bell className="w-4 h-4" />
+                    <span>O&apos;quvchi Profiliga Xabarni Yuborish</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* NEW TAB 3: ONLINE / OFFLINE RADAR & PUBLIC PROFILE INSPECTOR */}
+          {activeTab === 'online_radar' && (
+            <div className="aurora-card p-6 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-black flex items-center gap-2">
+                    <Wifi className="w-5 h-5 text-[#22c55e]" />
+                    <span>Online / Offline Tarmoq Radari va Profil Inspektor</span>
+                  </h3>
+                  <p className="text-xs opacity-70">
+                    O&apos;quvchining rasmiga bossangiz, uning Telegram uslubidagi profili ochiladi. Holatni Online (yashil) yoki Offline (qizil) qilish mumkin.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {students.map((st) => {
+                  const isOn = st.isOnline !== false;
+                  return (
+                    <div
+                      key={st.id}
+                      className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3"
+                    >
+                      <div
+                        className="flex items-center gap-3 cursor-pointer"
+                        onClick={() => setInspectingStudent(st)}
+                      >
+                        <AvatarWithFrame
+                          src={st.avatar || MALE_PROGRAMMER_AVATAR}
+                          alt={st.name}
+                          size={54}
+                          frameId={st.equippedFrame}
+                          stage={st.stage}
+                          equippedBadge={st.equippedBadge}
+                          isOnline={isOn}
+                          onClick={() => setInspectingStudent(st)}
+                        />
+                        <div>
+                          <h4 className="font-bold text-sm hover:text-[#3ee6c4] transition-colors">
+                            {st.name} {st.surname}
+                          </h4>
+                          <p className="text-xs font-mono opacity-75">@{st.username}</p>
+                          <span
+                            className={`text-[11px] font-mono font-bold ${
+                              isOn ? 'text-[#22c55e]' : 'text-[#ef4444]'
+                            }`}
+                          >
+                            ● {isOn ? 'Online (Tarmoqda)' : 'Offline (Uzilgan)'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateStudent(st.id, { isOnline: !isOn });
+                            triggerRefresh();
+                            recordAdminAction(
+                              `${st.name} holati ${!isOn ? 'ONLINE (Yashil)' : 'OFFLINE (Qizil)'} qilindi.`
+                            );
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5 ${
+                            isOn
+                              ? 'bg-[#ef4444]/20 text-[#ef4444]'
+                              : 'bg-[#22c55e]/20 text-[#22c55e]'
+                          }`}
+                        >
+                          {isOn ? <WifiOff className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
+                          <span>{isOn ? 'Offline qilish' : 'Online qilish'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setInspectingStudent(st)}
+                          className="px-3 py-1.5 rounded-xl bg-white/10 text-xs font-bold cursor-pointer"
+                        >
+                          Profilini ko&apos;rish
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* NEW TAB 4: 1.5x XP POTION, 1-MIN BOOST & ORNATE FRAMES / STICKERS CONTROLLER */}
+          {activeTab === 'economy_boosters' && (
+            <div className="aurora-card p-6 space-y-5">
+              <div>
+                <h3 className="text-lg font-black flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-[#ffd23f]" />
+                  <span>1.5x XP Potion, 1-Min XP Boost, Koi Ramka va Stiker Boshqaruvi</span>
+                </h3>
+                <p className="text-xs opacity-70">
+                  Talabalarga Koi Baliq kosmik ramkasi, LEGEND stikeri, 1.5x XP Potion yoki 1-daqiqalik (+2 XP/sek) Boost berish
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {students.map((st) => (
+                  <div
+                    key={st.id}
+                    className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <AvatarWithFrame
+                        src={st.avatar || MALE_PROGRAMMER_AVATAR}
+                        alt={st.name}
+                        size={52}
+                        frameId={st.equippedFrame}
+                        stage={st.stage}
+                        equippedBadge={st.equippedBadge}
+                        isOnline={st.isOnline !== false}
+                        onClick={() => setInspectingStudent(st)}
+                      />
+                      <div>
+                        <h4 className="font-bold text-sm">
+                          {st.name} {st.surname}{' '}
+                          <span className="text-xs font-mono text-[#3ee6c4]">@{st.username}</span>
+                        </h4>
+                        <p className="text-[11px] font-mono opacity-75">
+                          Potion: {st.xpPotionActive ? '🧪 1.5x FAOL' : "Yo'q"} · Ramka:{' '}
+                          {st.equippedFrame || 'standart'} · Stiker: {st.equippedBadge || st.stage.toUpperCase()}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateStudent(st.id, { xpPotionActive: !st.xpPotionActive });
+                          triggerRefresh();
+                          recordAdminAction(
+                            `${st.name} uchun 1.5x XP Potion ${!st.xpPotionActive ? 'yoqildi' : "o'chirildi"}!`
+                          );
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-[#b6f03c]/20 text-[#b6f03c] text-xs font-bold cursor-pointer"
+                      >
+                        🧪 {st.xpPotionActive ? 'Potion O‘chirish' : '1.5x Potion Yoqish'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateStudent(st.id, { xpBoostUntil: Date.now() + 60 * 1000 });
+                          triggerRefresh();
+                          recordAdminAction(`${st.name}ga 1-Min XP Boost (+2 XP/sek) berildi!`);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-[#3ee6c4]/20 text-[#3ee6c4] text-xs font-bold cursor-pointer flex items-center gap-1"
+                      >
+                        <Timer className="w-3.5 h-3.5" />
+                        <span>1-Min Boost (+2 XP/s)</span>
+                      </button>
+
+                      <select
+                        value={st.equippedFrame || 'frame-aurora-coral'}
+                        onChange={(e) => {
+                          updateStudent(st.id, { equippedFrame: e.target.value });
+                          triggerRefresh();
+                          recordAdminAction(`${st.name} ramkasi "${e.target.value}" ga o'zgartirildi!`);
+                        }}
+                        className="aurora-input py-1.5 px-2.5 text-xs font-bold w-auto"
+                      >
+                        {ORNATE_SHOP_FRAMES.map((fr) => (
+                          <option key={fr.id} value={fr.id}>
+                            Ramka: {fr.title}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={st.equippedBadge || 'HTML POYDEVOR'}
+                        onChange={(e) => {
+                          updateStudent(st.id, { equippedBadge: e.target.value });
+                          triggerRefresh();
+                          recordAdminAction(`${st.name} burchak stikeri "${e.target.value}" qilindi!`);
+                        }}
+                        className="aurora-input py-1.5 px-2.5 text-xs font-bold w-auto"
+                      >
+                        <option value="HTML POYDEVOR">Stiker: HTML</option>
+                        <option value="CSS DIZAYN">Stiker: CSS</option>
+                        <option value="JS NINJA">Stiker: JS</option>
+                        <option value="LEGEND 💎">Stiker: LEGEND 💎</option>
+                        <option value="PRO KING 👑">Stiker: PRO 👑</option>
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* NEW TAB 5: PVP & AI LEAGUE MONITOR */}
+          {activeTab === 'pvp_league' && (
+            <div className="aurora-card p-6 space-y-5">
+              <div>
+                <h3 className="text-lg font-black flex items-center gap-2">
+                  <Swords className="w-5 h-5 text-[#ff6b86]" />
+                  <span>Liga (PvP &amp; With AI — 30 Savol) Natijalari va Boshqaruvi</span>
+                </h3>
+                <p className="text-xs opacity-70">
+                  G&apos;alaba qozonganga +30 XP / +2 Coin, mag&apos;lub bo&apos;lganga -30 XP / -2 Coin qo&apos;llash
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {students.map((st) => (
+                  <div
+                    key={st.id}
+                    className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div>
+                      <h4 className="font-bold text-sm">
+                        {st.name} {st.surname} (@{st.username} · {st.stage.toUpperCase()})
+                      </h4>
+                      <p className="text-xs font-mono opacity-75">
+                        G&apos;alabalar: <strong className="text-[#3ee6c4]">{st.pvpWins || 0}</strong> ·
+                        Mag&apos;lubiyatlar: <strong className="text-[#ff6b86]">{st.pvpLosses || 0}</strong> ·
+                        Balans: {st.xp} XP / {Number(st.coins ?? 0).toFixed(1)} 🪙
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          recordLeagueBattleResult({
+                            studentId: st.id,
+                            won: true,
+                            opponentName: 'Admin Qarori',
+                            mode: 'pvp',
+                            myScore: 30,
+                            opponentScore: 0,
+                          });
+                          triggerRefresh();
+                          recordAdminAction(`${st.name}ga PvP G'alaba (+30 XP, +2 Coin) yozildi!`);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-[#3ee6c4]/20 text-[#3ee6c4] text-xs font-bold cursor-pointer"
+                      >
+                        🏆 +30 XP / +2 🪙 (G&apos;alaba)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          recordLeagueBattleResult({
+                            studentId: st.id,
+                            won: false,
+                            opponentName: 'Admin Qarori',
+                            mode: 'pvp',
+                            myScore: 0,
+                            opponentScore: 30,
+                          });
+                          triggerRefresh();
+                          recordAdminAction(`${st.name}ga PvP Mag'lubiyat (-30 XP, -2 Coin) yozildi!`);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-[#ff6b86]/20 text-[#ff6b86] text-xs font-bold cursor-pointer"
+                      >
+                        ⚔️ -30 XP / -2 🪙 (Mag&apos;lubiyat)
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* TAB 1: DIRECT ADMIN CONTROL CENTER (SHAXSIY BOSHQARUV PULTI) */}
           {activeTab === 'control_center' && (
             <div className="space-y-6">
@@ -1597,6 +2949,437 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
             </div>
           )}
+
+          {/* TAB 14: 👑 LEGEND PODIUM PROFILE CUSTOMIZER */}
+          {activeTab === 'legend_podium_config' && (
+            <div className="aurora-card p-6 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <span className="text-[11px] font-mono font-extrabold text-[#3ee6c4] uppercase">
+                    BO&apos;LIM 14 · PODIUM CHO&apos;QQISI BOSHQARUVI
+                  </span>
+                  <h3 className="text-xl font-black flex items-center gap-2 mt-0.5">
+                    <Crown className="w-6 h-6 text-[#ffd23f]" />
+                    <span>👑 LEGEND Podium Profili (1-O&apos;rindan Ham Tepada)</span>
+                  </h3>
+                  <p className="text-xs opacity-75 mt-1">
+                    Dashboarddagi Podiumning eng cho&apos;qqisida (1-o&apos;rindan ham yuqorida) turuvchi va hech kim o&apos;ta olmaydigan Admin O&apos;quvchi profilini sozlang.
+                  </p>
+                </div>
+
+                {onEnterAsStudent && (
+                  <button
+                    type="button"
+                    onClick={onEnterAsStudent}
+                    className="duo-btn duo-btn-gold text-xs shrink-0"
+                  >
+                    <Crown className="w-4 h-4" />
+                    <span>Hoziroq Shu Profilda Kirish</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Live Podium Card Preview */}
+                <div className="lg:col-span-5 rounded-3xl p-6 text-center space-y-3 border-2 border-[#3ee6c4] bg-gradient-to-b from-[#3ee6c4]/15 via-[#181529] to-[#ffd23f]/15 shadow-[0_0_35px_rgba(62,230,196,0.25)] flex flex-col items-center">
+                  <span className="px-3.5 py-1 rounded-full bg-gradient-to-r from-[#ffd23f] to-[#3ee6c4] text-[#0a0912] font-mono text-[10px] font-black">
+                    👑 LEGEND · HECH KIM O&apos;TA OLMAYDI
+                  </span>
+                  <AvatarWithFrame
+                    src={legendProfile.avatar || MALE_PROGRAMMER_AVATAR}
+                    alt={legendName}
+                    size={92}
+                    frameId={legendFrame}
+                    stage="fullstack"
+                    equippedBadge={legendBadge}
+                    isOnline={true}
+                  />
+                  <div>
+                    <h4 className="font-display text-lg font-black text-white">
+                      {legendName} {legendSurname}
+                    </h4>
+                    <p className="text-xs font-mono text-[#3ee6c4]">@{legendUsername}</p>
+                    <p className="text-[11px] opacity-80 mt-1">{legendBio}</p>
+                  </div>
+                  <div className="w-full py-2 px-3 rounded-2xl bg-[#ffd23f]/20 text-[#ffd23f] font-mono text-xs font-black">
+                    ⚡ ∞ XP · 🪙 ∞ TANGA
+                  </div>
+                </div>
+
+                {/* Form to customize the Legend Profile */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const updated = saveLegendAdminStudentProfile({
+                      name: legendName.trim() || 'Jasur',
+                      surname: legendSurname.trim() || 'Sultonov (Admin)',
+                      username: legendUsername.trim().toLowerCase() || 'admin_podium_1',
+                      age: Number(legendAge) || 21,
+                      bio: legendBio.trim(),
+                      equippedFrame: legendFrame,
+                      equippedBadge: legendBadge,
+                    });
+                    setLegendProfile(updated);
+                    triggerRefresh();
+                    recordAdminAction(
+                      `👑 LEGEND Podium profili ("${updated.name} ${updated.surname}") yangilandi!`
+                    );
+                  }}
+                  className="lg:col-span-7 space-y-3.5 text-xs"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold mb-1">Legend Ismi</label>
+                      <input
+                        type="text"
+                        required
+                        value={legendName}
+                        onChange={(e) => setLegendName(e.target.value)}
+                        className="aurora-input py-2 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Legend Familiyasi</label>
+                      <input
+                        type="text"
+                        required
+                        value={legendSurname}
+                        onChange={(e) => setLegendSurname(e.target.value)}
+                        className="aurora-input py-2 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold mb-1">Username (@login)</label>
+                      <input
+                        type="text"
+                        required
+                        value={legendUsername}
+                        onChange={(e) => setLegendUsername(e.target.value)}
+                        className="aurora-input py-2 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Yoshi</label>
+                      <input
+                        type="number"
+                        min={7}
+                        max={99}
+                        value={legendAge}
+                        onChange={(e) => setLegendAge(Number(e.target.value))}
+                        className="aurora-input py-2 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Legend Bio (Podium ostida chiqadi)</label>
+                    <input
+                      type="text"
+                      value={legendBio}
+                      onChange={(e) => setLegendBio(e.target.value)}
+                      className="aurora-input py-2 text-xs"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold mb-1">Maxsus Ramka</label>
+                      <select
+                        value={legendFrame}
+                        onChange={(e) => setLegendFrame(e.target.value)}
+                        className="aurora-input py-2 text-xs font-bold"
+                      >
+                        {ORNATE_SHOP_FRAMES.map((fr) => (
+                          <option key={fr.id} value={fr.id}>
+                            {fr.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Maxsus Stiker</label>
+                      <select
+                        value={legendBadge}
+                        onChange={(e) => setLegendBadge(e.target.value)}
+                        className="aurora-input py-2 text-xs font-bold"
+                      >
+                        <option value="LEGEND 💎">LEGEND 💎</option>
+                        <option value="PRO KING 👑">PRO KING 👑</option>
+                        <option value="FULLSTACK 🚀">FULLSTACK 🚀</option>
+                        <option value="AI MASTER 🤖">AI MASTER 🤖</option>
+                        <option value="CYBER BOSS ⚡">CYBER BOSS ⚡</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button type="submit" className="duo-btn duo-btn-mint w-full py-2.5 text-xs">
+                    <Check className="w-4 h-4" />
+                    <span>👑 LEGEND Podium Profilini Saqlash</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 15: 🎁 OMMAVIY BONUS, BROADCAST E'LON VA TEZKOR SERTIFIKAT BERISH */}
+          {activeTab === 'promo_and_awards' && (
+            <div className="space-y-6">
+              {/* 1. Mass XP & Coin Airdrop + Broadcast Message */}
+              <div className="aurora-card p-6 space-y-4">
+                <div>
+                  <span className="text-[11px] font-mono font-extrabold text-[#ffd23f] uppercase">
+                    BO&apos;LIM 15A · OMMAVIY MUKOFOT VA E&apos;LON
+                  </span>
+                  <h3 className="text-lg font-black flex items-center gap-2 mt-0.5">
+                    <Sparkles className="w-5 h-5 text-[#ffd23f]" />
+                    <span>Barcha O&apos;quvchilarga Bir Vaqtda XP, Tanga va Xabar Yuborish</span>
+                  </h3>
+                  <p className="text-xs opacity-75">
+                    Bir tugma bilan barcha {students.length} nafar talabaga mukofot va bildirishnoma yuboring.
+                  </p>
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const count = broadcastRewardToStudents({
+                      targetStage: 'all',
+                      xpBonus: Number(broadcastXp) || 0,
+                      coinBonus: Number(broadcastCoins) || 0,
+                      enablePotion: false,
+                      messageTitle: broadcastTitle.trim() || '🎁 Admin Mukofoti',
+                      messageText: broadcastText.trim(),
+                    });
+                    triggerRefresh();
+                    recordAdminAction(
+                      `🎁 Barcha ${count} nafar o'quvchiga +${broadcastXp} XP va +${broadcastCoins} tanga tarqatildi!`
+                    );
+                  }}
+                  className="space-y-3 text-xs"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block font-bold mb-1">Qo&apos;shiladigan XP (+)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={5000}
+                        value={broadcastXp}
+                        onChange={(e) => setBroadcastXp(Number(e.target.value))}
+                        className="aurora-input py-2 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Qo&apos;shiladigan Tanga (🪙 +)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.5"
+                        max={500}
+                        value={broadcastCoins}
+                        onChange={(e) => setBroadcastCoins(Number(e.target.value))}
+                        className="aurora-input py-2 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Xabar Sarlavhasi</label>
+                      <input
+                        type="text"
+                        value={broadcastTitle}
+                        onChange={(e) => setBroadcastTitle(e.target.value)}
+                        className="aurora-input py-2 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Xabar Matni (Har bir o&apos;quvchi profiliga tushadi)</label>
+                    <input
+                      type="text"
+                      value={broadcastText}
+                      onChange={(e) => setBroadcastText(e.target.value)}
+                      className="aurora-input py-2 text-xs"
+                    />
+                  </div>
+
+                  <button type="submit" className="duo-btn duo-btn-gold w-full py-2.5 text-xs">
+                    <Send className="w-4 h-4" />
+                    <span>
+                      Barcha {students.length} Nafar Talabaga +{broadcastXp} XP va +{broadcastCoins} 🪙 Yuborish
+                    </span>
+                  </button>
+                </form>
+              </div>
+
+              {/* 2. Instant Official Certificate Issuer */}
+              <div className="aurora-card p-6 space-y-4">
+                <div>
+                  <span className="text-[11px] font-mono font-extrabold text-[#3ee6c4] uppercase">
+                    BO&apos;LIM 15B · RASMIY DIPLOM VA SERTIFIKAT GENERATORI
+                  </span>
+                  <h3 className="text-lg font-black flex items-center gap-2 mt-0.5">
+                    <Award className="w-5 h-5 text-[#3ee6c4]" />
+                    <span>Talabaga Rasmiy QR-Kodli Sertifikat Taqdim Etish</span>
+                  </h3>
+                  <p className="text-xs opacity-75">
+                    Tanlangan talabaga imtihonsiz to&apos;g&apos;ridan-to&apos;g&apos;ri rasmiy PDF sertifikat va bildirishnoma yuboring.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end text-xs">
+                  <div>
+                    <label className="block font-bold mb-1">Talabani Tanlang</label>
+                    <select
+                      value={certTargetStudentId}
+                      onChange={(e) => setCertTargetStudentId(e.target.value)}
+                      className="aurora-input py-2 text-xs font-bold"
+                    >
+                      {students.map((st) => (
+                        <option key={st.id} value={st.id}>
+                          {st.name} {st.surname} (@{st.username})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Sertifikat Yo&apos;nalishi</label>
+                    <select
+                      value={certType}
+                      onChange={(e) =>
+                        setCertType(
+                          e.target.value as 'frontend' | 'backend' | 'fullstack'
+                        )
+                      }
+                      className="aurora-input py-2 text-xs font-bold uppercase"
+                    >
+                      <option value="frontend">Frontend Master Sertifikati</option>
+                      <option value="backend">Backend &amp; SQL Architect Sertifikati</option>
+                      <option value="fullstack">Full-Stack Faxriy Diplom</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const st = students.find((s) => s.id === certTargetStudentId) || students[0];
+                      if (!st) return;
+                      const cert = issueInstantCertificateToStudent(st.id, certType);
+                      triggerRefresh();
+                      if (cert) {
+                        recordAdminAction(
+                          `🎓 ${st.name} ${st.surname}ga "${cert.title}" (${cert.id}) sertifikati berildi!`
+                        );
+                      }
+                    }}
+                    className="duo-btn duo-btn-mint py-2.5 text-xs"
+                  >
+                    <Award className="w-4 h-4" />
+                    <span>Sertifikatni Rasmiylashtirish</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 16: 🛡️ PAROL, LOGIN VA XAVFSIZLIK NAZORATI */}
+          {activeTab === 'security_inspector' && (
+            <div className="aurora-card p-6 space-y-5">
+              <div>
+                <span className="text-[11px] font-mono font-extrabold text-[#ff6b86] uppercase">
+                  BO&apos;LIM 16 · XAVFSIZLIK VA PAROLLAR NAZORATI
+                </span>
+                <h3 className="text-lg font-black flex items-center gap-2 mt-0.5">
+                  <Shield className="w-5 h-5 text-[#ff6b86]" />
+                  <span>Talabalar Login, Parol va Bosqichlarini Tezkor Boshqarish</span>
+                </h3>
+                <p className="text-xs opacity-75">
+                  Parolini unutgan o&apos;quvchilarning login/parollarini ko&apos;rish, yangi parol o&apos;rnatish yoki bosqichini bir klikda ko&apos;tarish.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {students.map((st) => (
+                  <div
+                    key={st.id}
+                    className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 text-xs"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm text-white">
+                          {st.name} {st.surname}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-lg bg-[#3ee6c4]/20 text-[#3ee6c4] font-mono font-bold">
+                          Login: @{st.username}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-lg bg-[#ffd23f]/20 text-[#ffd23f] font-mono font-bold">
+                          Joriy Parol: {st.password || 'student123'}
+                        </span>
+                      </div>
+                      <p className="opacity-70 font-mono text-[11px]">
+                        Email: {st.email || 'kiritilmagan'} · Tel: {st.phone || 'kiritilmagan'} · Bosqich: {st.stage.toUpperCase()}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Yangi parol yozing..."
+                        value={securityPassDrafts[st.id] || ''}
+                        onChange={(e) =>
+                          setSecurityPassDrafts((prev) => ({
+                            ...prev,
+                            [st.id]: e.target.value,
+                          }))
+                        }
+                        className="aurora-input py-1.5 px-3 text-xs font-mono w-40"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextPass = (securityPassDrafts[st.id] || '').trim() || '123456';
+                          updateStudent(st.id, { password: nextPass });
+                          setSecurityPassDrafts((prev) => ({ ...prev, [st.id]: '' }));
+                          triggerRefresh();
+                          recordAdminAction(
+                            `🔐 ${st.name} (@${st.username}) paroli "${nextPass}" ga yangilandi!`
+                          );
+                        }}
+                        className="duo-btn duo-btn-mint py-1.5 px-3 text-xs"
+                      >
+                        Parolni Yangilash
+                      </button>
+
+                      <select
+                        value={st.stage}
+                        onChange={(e) => {
+                          const nextStage = e.target.value as CourseStage;
+                          updateStudent(st.id, { stage: nextStage });
+                          triggerRefresh();
+                          recordAdminAction(
+                            `🚀 ${st.name} bosqichi ${nextStage.toUpperCase()} ga o'zgartirildi!`
+                          );
+                        }}
+                        className="aurora-input py-1.5 px-2.5 text-xs font-bold uppercase w-auto"
+                      >
+                        <option value="html">HTML</option>
+                        <option value="css">CSS</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="typescript">TypeScript</option>
+                        <option value="react">React</option>
+                        <option value="backend">Backend</option>
+                        <option value="database">SQL</option>
+                        <option value="fullstack">Fullstack</option>
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1984,6 +3767,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* TELEGRAM-STYLE STUDENT PUBLIC PROFILE MODAL */}
+      <StudentPublicProfileModal
+        student={inspectingStudent}
+        onClose={() => setInspectingStudent(null)}
+        onOpenGroupChat={() => {
+          setInspectingStudent(null);
+          if (onOpenGroupChat) onOpenGroupChat('t-1');
+        }}
+      />
     </div>
   );
 };

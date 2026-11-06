@@ -8,7 +8,12 @@ import {
   GroupChatMessage,
   CourseStage,
   AuthUser,
-  CertificateData
+  CertificateData,
+  FeedbackReport,
+  SubAdmin,
+  SubAdminDepartment,
+  AiConversationMemory,
+  AiChatMemoryMessage,
 } from '../types';
 import {
   INITIAL_TEACHERS,
@@ -39,6 +44,9 @@ const STORAGE_KEYS = {
   GROUP_MESSAGES: 'devmaster_group_messages_v2',
   PORTFOLIO_PROJECTS: 'devmaster_portfolio_projects_v1',
   AI_PERSONAS: 'devmaster_ai_friend_personas_v1',
+  FEEDBACK_REPORTS: 'devmaster_feedback_reports_v1',
+  SUB_ADMINS: 'devmaster_sub_admins_v1',
+  AI_MEMORIES: 'devmaster_ai_memories_v1',
   AUTH_USER: 'devmaster_current_auth_user_v2',
 };
 
@@ -55,6 +63,9 @@ export const SHARED_STORAGE_KEYS = [
   STORAGE_KEYS.GROUP_MESSAGES,
   STORAGE_KEYS.PORTFOLIO_PROJECTS,
   STORAGE_KEYS.AI_PERSONAS,
+  STORAGE_KEYS.FEEDBACK_REPORTS,
+  STORAGE_KEYS.SUB_ADMINS,
+  STORAGE_KEYS.AI_MEMORIES,
 ];
 
 /** Ilova ochilganda bir marta chaqiriladi: yagona markaziy bazadan ma'lumotni yuklaydi. */
@@ -142,6 +153,29 @@ export function loginUser(
       success: true,
       user: ownerUser,
       message: `Xush kelibsiz, Boshqaruvchi Olimjon Alimjonov (Lord)! 👑`,
+    };
+  }
+
+  // 1.5 Check Sub-Admins (O'rinbosar Adminlar)
+  const subAdmins = getSubAdmins();
+  const matchedSubAdmin = subAdmins.find(
+    (sa) => sa.active && sa.username.toLowerCase() === cleanUsername && sa.password === cleanPass
+  );
+  if (matchedSubAdmin) {
+    const subAdminUser: AuthUser = {
+      id: matchedSubAdmin.id,
+      name: `${matchedSubAdmin.name} ${matchedSubAdmin.surname}`,
+      username: matchedSubAdmin.username,
+      role: 'sub_admin',
+      avatar: OWNER_PROFILE.avatar,
+      subAdminPermissions: matchedSubAdmin.permissions,
+      subAdminRoleTitle: matchedSubAdmin.roleTitle,
+    };
+    setCurrentAuthUser(subAdminUser);
+    return {
+      success: true,
+      user: subAdminUser,
+      message: `Xush kelibsiz, O'rinbosar Admin ${matchedSubAdmin.name} (${matchedSubAdmin.roleTitle})! 🛡️`,
     };
   }
 
@@ -777,13 +811,19 @@ export function recordQuizSubmission(params: {
 
   student.quizScores = student.quizScores || {};
 
-  // TESTDAN O'TISH: Kamida 70% to'plashi shart!
+  // TESTDAN O'TISH: Kamida 70% to'plashi shart! (Qiyinlashtirilgan XP va Tanga tizimi)
   if (percentage >= 70) {
     let earnedXp = 0;
     if (!student.quizScores[lessonId] || percentage > student.quizScores[lessonId]) {
-      earnedXp = xpReward || 60;
+      const baseLessonXp = Math.min(12, Math.max(8, Math.round((xpReward || 20) * 0.25)));
+      const multiplier = student.xpMultiplier && student.xpMultiplier > 1
+        ? student.xpMultiplier
+        : student.xpPotionActive
+        ? 1.5
+        : 1;
+      earnedXp = Math.round(baseLessonXp * multiplier);
       student.xp += earnedXp;
-      student.coins = Number(((student.coins || 0) + 2.5).toFixed(1));
+      student.coins = Number(((student.coins || 0) + 0.5).toFixed(1));
     }
     student.quizScores[lessonId] = Math.max(student.quizScores[lessonId] || 0, percentage);
 
@@ -794,6 +834,7 @@ export function recordQuizSubmission(params: {
     const newCert = checkAndAwardCertificates(student);
     saveStudents(students);
 
+    const activeMulti = student.xpMultiplier || (student.xpPotionActive ? 1.5 : 1);
     return {
       passed: true,
       percentage,
@@ -801,7 +842,7 @@ export function recordQuizSubmission(params: {
       currentHearts: 3,
       newCoins: student.coins,
       newTotalXp: student.xp,
-      message: `Tabriklaymiz! Testdan ${percentage}% ball to'plab o'tdingiz va +${earnedXp} XP hamda +2.5 tanga oldingiz! 🎉`,
+      message: `Tabriklaymiz! Testdan ${percentage}% ball to'plab o'tdingiz va +${earnedXp} XP${activeMulti > 1 ? ` (${activeMulti}x Potion bilan)` : ''} hamda +0.5 tanga oldingiz! 🎉`,
       newCertificate: newCert,
     };
   } else {
@@ -818,19 +859,92 @@ export function recordQuizSubmission(params: {
   }
 }
 
-// O'yinlardan XP to'plash
-export function recordGameXp(studentId: string, gameName: string, xpEarned: number): { success: boolean; newXp: number } {
+// O'yinlardan XP va Tanga berilmaydi (0 XP, 0 Coin — faqat mashq va qiziqish uchun)
+export function recordGameXp(studentId: string, gameName: string, _xpEarned: number): { success: boolean; newXp: number } {
   const students = getStudents();
   const student = students.find((s) => s.id === studentId);
   if (!student) return { success: false, newXp: 0 };
 
-  student.xp += xpEarned;
-  student.coins += Math.floor(xpEarned / 5);
   student.gameScores = student.gameScores || {};
-  student.gameScores[gameName] = (student.gameScores[gameName] || 0) + xpEarned;
+  student.gameScores[gameName] = (student.gameScores[gameName] || 0) + 1;
 
   saveStudents(students);
   return { success: true, newXp: student.xp };
+}
+
+// Liga jangi (PvP yoki With AI): G'olibga +30 XP va +2 Coin, Mag'lubga -30 XP va -2 Coin
+export function recordLeagueBattleResult(params: {
+  studentId: string;
+  won: boolean;
+  opponentName: string;
+  mode: 'pvp' | 'ai';
+  myScore: number;
+  opponentScore: number;
+}): { newXp: number; newCoins: number; xpDelta: number; coinDelta: number } {
+  if (params.studentId === 'admin-ghost-student') {
+    return { newXp: 999999999, newCoins: 999999999, xpDelta: params.won ? 30 : 0, coinDelta: params.won ? 2 : 0 };
+  }
+  const students = getStudents();
+  const student = students.find((s) => s.id === params.studentId);
+  if (!student) return { newXp: 0, newCoins: 0, xpDelta: 0, coinDelta: 0 };
+
+  let xpDelta = params.won ? 30 : -30;
+  let coinDelta = params.won ? 2 : -2;
+
+  if (params.won && (student.pvpDoubleRewardCount || 0) > 0) {
+    xpDelta = 60;
+    coinDelta = 4;
+    student.pvpDoubleRewardCount = Math.max(0, (student.pvpDoubleRewardCount || 1) - 1);
+  } else if (!params.won && (student.pvpShieldCount || 0) > 0) {
+    xpDelta = 0;
+    coinDelta = 0;
+    student.pvpShieldCount = Math.max(0, (student.pvpShieldCount || 1) - 1);
+  }
+
+  student.xp = Math.max(0, (student.xp || 0) + xpDelta);
+  student.coins = Math.max(0, Number(((student.coins || 0) + coinDelta).toFixed(1)));
+  if (params.won) {
+    student.pvpWins = (student.pvpWins || 0) + 1;
+  } else {
+    student.pvpLosses = (student.pvpLosses || 0) + 1;
+  }
+
+  student.adminMessages = student.adminMessages || [];
+  student.adminMessages.unshift({
+    id: `msg-battle-${Date.now()}`,
+    sender: 'Liga Hakami',
+    title: params.won ? `🏆 Liga G'alabasi (${params.mode.toUpperCase()})` : `⚔️ Liga Mag'lubiyati (${params.mode.toUpperCase()})`,
+    text: `${params.opponentName} ga qarshi 30 savollik jangda ${params.myScore}:${params.opponentScore} hisob qayd etildi. Natija: ${xpDelta >= 0 ? `+${xpDelta}` : xpDelta} XP, ${coinDelta >= 0 ? `+${coinDelta}` : coinDelta} Coin.`,
+    type: 'battle',
+    createdAt: new Date().toLocaleString('uz-UZ'),
+    read: false,
+  });
+
+  saveStudents(students);
+  return { newXp: student.xp, newCoins: student.coins, xpDelta, coinDelta };
+}
+
+// Admin tomonidan o'quvchi profiliga xabar (masalan: Streak uzilishi ogohlantirishi) yuborish
+export function sendAdminMessageToStudent(params: {
+  studentId: string;
+  title: string;
+  text: string;
+  type?: 'streak_warning' | 'admin_notice' | 'reward' | 'battle';
+}): void {
+  const students = getStudents();
+  const student = students.find((s) => s.id === params.studentId);
+  if (!student) return;
+  student.adminMessages = student.adminMessages || [];
+  student.adminMessages.unshift({
+    id: `adm-msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    sender: 'Olimjon Alimjonov (Admin)',
+    title: params.title,
+    text: params.text,
+    type: params.type || 'streak_warning',
+    createdAt: new Date().toLocaleString('uz-UZ'),
+    read: false,
+  });
+  saveStudents(students);
 }
 
 // Sertifikatlarni tekshirish va berish
@@ -921,12 +1035,28 @@ export function deleteStudent(studentId: string): void {
 }
 
 export function updateStudent(studentId: string, updates: Partial<Student>): Student | null {
+  // Agar Adminning LEGEND o'quvchi profili tahrirlanayotgan bo'lsa
+  if (studentId === 'admin-ghost-student') {
+    return saveLegendAdminStudentProfile(updates);
+  }
+
   const current = getStudents();
   const idx = current.findIndex((s) => s.id === studentId);
   if (idx === -1) return null;
   const updatedStudent: Student = { ...current[idx], ...updates };
   const students = current.map((s, i) => (i === idx ? updatedStudent : s));
   saveStudents(students);
+
+  // Agar hozir tizimda o'tirgan foydalanuvchi shu o'quvchi bo'lsa, AuthUser sessiyasini ham yangilash
+  const auth = getCurrentAuthUser();
+  if (auth && auth.id === studentId) {
+    setCurrentAuthUser({
+      ...auth,
+      name: `${updatedStudent.name} ${updatedStudent.surname}`.trim(),
+      username: updatedStudent.username,
+      avatar: updatedStudent.avatar,
+    });
+  }
 
   // Agar ustoz o'zgargan bo'lsa, ustozlarning studentIds ro'yxatini ham sinxronlash
   if (updates.teacherId && updates.teacherId !== current[idx].teacherId) {
@@ -1020,11 +1150,19 @@ export function deductCoinsForAi(studentId: string, promptText: string): {
   remainingCoins: number;
   message?: string;
 } {
+  if (studentId === 'admin-ghost-student') {
+    return { success: true, cost: 0, remainingCoins: 999999999 };
+  }
   const cost = calculateTokenCost(promptText);
   const students = getStudents();
   const student = students.find((s) => s.id === studentId);
   if (!student) {
     return { success: true, cost: 0, remainingCoins: 20 };
+  }
+  if ((student.freeAiQuestionsCount || 0) > 0) {
+    student.freeAiQuestionsCount = Math.max(0, (student.freeAiQuestionsCount || 1) - 1);
+    saveStudents(students);
+    return { success: true, cost: 0, remainingCoins: student.coins };
   }
   const currentCoins = student.coins ?? 20;
   if (currentCoins < cost) {
@@ -1208,5 +1346,466 @@ export function deleteAiFriendPersona(id: string): void {
   if (list.length > 0 && !list.some((p) => p.isActive)) list[0].isActive = true;
   saveAiFriendPersonas(list);
 }
+
+// ----------------- 1. XATOLIKLAR (BUG) VA TAKLIFLAR (BOSH SAHIFA UCHUN) -----------------
+export function getFeedbackReports(): FeedbackReport[] {
+  return loadFromStorage<FeedbackReport[]>(STORAGE_KEYS.FEEDBACK_REPORTS, []);
+}
+
+export function saveFeedbackReports(reports: FeedbackReport[]): void {
+  saveToStorage(STORAGE_KEYS.FEEDBACK_REPORTS, reports);
+}
+
+export function addFeedbackReport(data: {
+  firstName: string;
+  lastName: string;
+  contact: string;
+  type: 'bug' | 'suggestion';
+  message: string;
+  mediaUrl?: string;
+  mediaType?: 'image' | 'video';
+  mediaName?: string;
+}): FeedbackReport {
+  const reports = getFeedbackReports();
+  const subAdmins = getSubAdmins();
+  const bugSpecialist = subAdmins.find(
+    (sa) => sa.active && sa.permissions.includes('feedback_bugs')
+  );
+
+  const newReport: FeedbackReport = {
+    id: `fb-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    firstName: data.firstName.trim(),
+    lastName: data.lastName.trim(),
+    contact: data.contact.trim(),
+    type: data.type,
+    message: data.message.trim(),
+    mediaUrl: data.mediaUrl,
+    mediaType: data.mediaType,
+    mediaName: data.mediaName,
+    status: 'new',
+    assignedAdminId: bugSpecialist?.id,
+    assignedAdminName: bugSpecialist ? `${bugSpecialist.name} ${bugSpecialist.surname}` : 'Olimjon Alimjonov (Bosh Admin)',
+    createdAt: new Date().toLocaleString('uz-UZ'),
+  };
+  reports.unshift(newReport);
+  saveFeedbackReports(reports);
+  return newReport;
+}
+
+export function updateFeedbackReport(id: string, updates: Partial<FeedbackReport>): FeedbackReport | null {
+  const reports = getFeedbackReports();
+  const idx = reports.findIndex((r) => r.id === id);
+  if (idx === -1) return null;
+  reports[idx] = { ...reports[idx], ...updates };
+  saveFeedbackReports(reports);
+  return reports[idx];
+}
+
+export function deleteFeedbackReport(id: string): void {
+  const reports = getFeedbackReports().filter((r) => r.id !== id);
+  saveFeedbackReports(reports);
+}
+
+// ----------------- 2. O'RINBOSAR ADMINLAR (SUB-ADMINS & ISH TAQSIMOTI) -----------------
+const DEFAULT_SUB_ADMINS: SubAdmin[] = [
+  {
+    id: 'subadmin-db-1',
+    name: 'Jasur',
+    surname: 'Karimov',
+    username: 'admin_baza',
+    password: 'baza123',
+    roleTitle: "Ma'lumotlar Bazasi va O'quvchilar Mas'uli",
+    permissions: ['database', 'students_teachers', 'streak_messages'],
+    assignedTasks: [
+      {
+        id: 'task-1',
+        title: "Kunlik PostgreSQL va bulutli baza sinxronizatsiyasini tekshirish",
+        department: 'database',
+        completed: false,
+        createdAt: '2026-11-05',
+      },
+      {
+        id: 'task-2',
+        title: "1 kunlik streak qoldirgan o'quvchilarga ogohlantirish xabarini yuborish",
+        department: 'streak_messages',
+        completed: false,
+        createdAt: '2026-11-05',
+      },
+    ],
+    createdAt: '2026-11-05',
+    active: true,
+  },
+  {
+    id: 'subadmin-bugs-2',
+    name: 'Sardor',
+    surname: 'Rustamov',
+    username: 'admin_xabar',
+    password: 'xabar123',
+    roleTitle: 'Bug (Xatoliklar) va Takliflar Bo‘limi Boshlig‘i',
+    permissions: ['feedback_bugs', 'economy_shop', 'pvp_league'],
+    assignedTasks: [
+      {
+        id: 'task-3',
+        title: "Bosh sahifadan kelgan barcha Bug va Taklif xabarlarini ko'rib chiqib javob yozish",
+        department: 'feedback_bugs',
+        completed: false,
+        createdAt: '2026-11-05',
+      },
+    ],
+    createdAt: '2026-11-05',
+    active: true,
+  },
+];
+
+export function getSubAdmins(): SubAdmin[] {
+  return loadFromStorage<SubAdmin[]>(STORAGE_KEYS.SUB_ADMINS, DEFAULT_SUB_ADMINS);
+}
+
+export function saveSubAdmins(list: SubAdmin[]): void {
+  saveToStorage(STORAGE_KEYS.SUB_ADMINS, list);
+}
+
+export function addSubAdmin(data: {
+  name: string;
+  surname: string;
+  username: string;
+  password: string;
+  roleTitle: string;
+  permissions: SubAdminDepartment[];
+  initialTask?: string;
+}): SubAdmin {
+  const list = getSubAdmins();
+  const primaryDept: SubAdminDepartment = data.permissions[0] || 'feedback_bugs';
+  const newSub: SubAdmin = {
+    id: `subadmin-${Date.now()}`,
+    name: data.name.trim(),
+    surname: data.surname.trim(),
+    username: data.username.trim().toLowerCase(),
+    password: data.password.trim(),
+    roleTitle: data.roleTitle.trim(),
+    permissions: data.permissions,
+    assignedTasks: data.initialTask?.trim()
+      ? [
+          {
+            id: `task-${Date.now()}`,
+            title: data.initialTask.trim(),
+            department: primaryDept,
+            completed: false,
+            createdAt: new Date().toLocaleDateString('uz-UZ'),
+          },
+        ]
+      : [],
+    createdAt: new Date().toLocaleDateString('uz-UZ'),
+    active: true,
+  };
+  list.push(newSub);
+  saveSubAdmins(list);
+  return newSub;
+}
+
+export function updateSubAdmin(id: string, updates: Partial<SubAdmin>): SubAdmin | null {
+  const list = getSubAdmins();
+  const idx = list.findIndex((sa) => sa.id === id);
+  if (idx === -1) return null;
+  list[idx] = { ...list[idx], ...updates };
+  saveSubAdmins(list);
+  return list[idx];
+}
+
+export function deleteSubAdmin(id: string): void {
+  const list = getSubAdmins().filter((sa) => sa.id !== id);
+  saveSubAdmins(list);
+}
+
+export function assignSubAdminTask(
+  subAdminId: string,
+  title: string,
+  department: SubAdminDepartment
+): SubAdmin | null {
+  const list = getSubAdmins();
+  const sa = list.find((item) => item.id === subAdminId);
+  if (!sa) return null;
+  sa.assignedTasks = sa.assignedTasks || [];
+  sa.assignedTasks.unshift({
+    id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+    title: title.trim(),
+    department,
+    completed: false,
+    createdAt: new Date().toLocaleString('uz-UZ'),
+  });
+  if (!sa.permissions.includes(department)) {
+    sa.permissions.push(department);
+  }
+  saveSubAdmins(list);
+  return sa;
+}
+
+export function toggleSubAdminTask(subAdminId: string, taskId: string): SubAdmin | null {
+  const list = getSubAdmins();
+  const sa = list.find((item) => item.id === subAdminId);
+  if (!sa) return null;
+  sa.assignedTasks = (sa.assignedTasks || []).map((t) =>
+    t.id === taskId ? { ...t, completed: !t.completed } : t
+  );
+  saveSubAdmins(list);
+  return sa;
+}
+
+// ----------------- 3. AI CHAT DOIMIY XOTIRASI (HAR BIR FOYDALANUVCHI UCHUN) -----------------
+export function getAiMemory(userId = 'default_user', userName = 'Dasturchi'): AiConversationMemory {
+  const all = loadFromStorage<AiConversationMemory[]>(STORAGE_KEYS.AI_MEMORIES, []);
+  const found = all.find((m) => m.userId === userId);
+  if (found) return found;
+  return {
+    userId,
+    userName,
+    facts: [],
+    messages: [],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function saveAiMemoryMessage(
+  userId: string,
+  userName: string,
+  msg: AiChatMemoryMessage,
+  extractedFact?: string
+): AiConversationMemory {
+  const all = loadFromStorage<AiConversationMemory[]>(STORAGE_KEYS.AI_MEMORIES, []);
+  let idx = all.findIndex((m) => m.userId === userId);
+  if (idx === -1) {
+    all.push({
+      userId,
+      userName,
+      facts: [],
+      messages: [],
+      updatedAt: new Date().toISOString(),
+    });
+    idx = all.length - 1;
+  }
+
+  const mem = all[idx];
+  mem.userName = userName || mem.userName;
+  mem.messages = [...(mem.messages || []), msg].slice(-40);
+
+  // Avtomatik faktlarni eslab qolish (ism, yosh, qiziqish, maqsad)
+  if (msg.sender === 'user') {
+    const text = msg.text.trim();
+    const lower = text.toLowerCase();
+    if (
+      lower.includes('ismim') ||
+      lower.includes('men ') ||
+      lower.includes('yoshim') ||
+      lower.includes('yaxshi ko') ||
+      lower.includes('eslab qol') ||
+      lower.includes('mening ')
+    ) {
+      const factStr = `Foydalanuvchi aytdi (${msg.time}): "${text.slice(0, 140)}"`;
+      if (!mem.facts.includes(factStr)) {
+        mem.facts = [factStr, ...(mem.facts || [])].slice(0, 20);
+      }
+    }
+  }
+  if (extractedFact && !mem.facts.includes(extractedFact)) {
+    mem.facts = [extractedFact, ...(mem.facts || [])].slice(0, 20);
+  }
+
+  mem.updatedAt = new Date().toISOString();
+  saveToStorage(STORAGE_KEYS.AI_MEMORIES, all);
+  return mem;
+}
+
+export function clearAiMemory(userId: string): void {
+  const all = loadFromStorage<AiConversationMemory[]>(STORAGE_KEYS.AI_MEMORIES, []).filter(
+    (m) => m.userId !== userId
+  );
+  saveToStorage(STORAGE_KEYS.AI_MEMORIES, all);
+}
+
+// ----------------- 4. ADMIN "LEGEND" O'QUVCHI PROFILI (PODIUMDA 1-O'RINDAN HAM TEPADA · HECH KIM O'TA OLMAYDI) -----------------
+const LEGEND_ADMIN_STUDENT_KEY = 'devmaster_legend_admin_student_v1';
+
+const DEFAULT_LEGEND_ADMIN_STUDENT: Student = {
+  id: 'admin-ghost-student',
+  name: OWNER_PROFILE.name,
+  surname: '(LEGEND 👑)',
+  username: 'lord_o1',
+  password: OWNER_CREDENTIALS.password,
+  avatar: OWNER_PROFILE.avatar || MALE_PROGRAMMER_AVATAR,
+  bio: "Platforma Asoschisi va Mutlaq LEGEND · Cheksiz XP va Cheksiz Tanga sohibi (Podiumning eng cho'qqisida — hech kim o'ta olmaydi!)",
+  phone: '+998 90 000 00 01',
+  email: OWNER_PROFILE.email,
+  age: 20,
+  stage: 'fullstack',
+  xp: 999999999,
+  rank: 0,
+  coins: 999999999,
+  teacherId: 't-1',
+  completedLessons: LESSONS.map((l) => l.id),
+  equippedFrame: 'frame-koi-fish',
+  equippedBadge: 'LEGEND 💎',
+  xpPotionActive: true,
+  xpMultiplier: 3.0,
+  isGhostAdminStudent: true,
+  isOnline: true,
+  lastSeenAt: Date.now(),
+  pvpWins: 999,
+  pvpLosses: 0,
+  lastActive: 'Doim Online (LEGEND Choʻqqisi)',
+  joinedDate: '2026-01-01',
+  interests: ['Full-Stack Architecture', 'AI Engineering', 'CyberSecurity', 'Anime'],
+};
+
+export function getLegendAdminStudentProfile(): Student {
+  try {
+    if (typeof window !== 'undefined') {
+      const raw = window.localStorage.getItem(LEGEND_ADMIN_STUDENT_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          ...DEFAULT_LEGEND_ADMIN_STUDENT,
+          ...parsed,
+          id: 'admin-ghost-student',
+          xp: 999999999,
+          coins: 999999999,
+          isGhostAdminStudent: true,
+        };
+      }
+    }
+  } catch {}
+  return { ...DEFAULT_LEGEND_ADMIN_STUDENT };
+}
+
+export function saveLegendAdminStudentProfile(updates: Partial<Student>): Student {
+  const current = getLegendAdminStudentProfile();
+  const next: Student = {
+    ...current,
+    ...updates,
+    id: 'admin-ghost-student',
+    xp: 999999999,
+    coins: 999999999,
+    isGhostAdminStudent: true,
+  };
+  try {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(LEGEND_ADMIN_STUDENT_KEY, JSON.stringify(next));
+    }
+  } catch {}
+  return next;
+}
+
+export function createGhostAdminStudentProfile(): Student {
+  return getLegendAdminStudentProfile();
+}
+
+// Admin tomonidan istalgan o'quvchiga 1 bosishda rasmiy sertifikat berish
+export function issueInstantCertificateToStudent(
+  studentId: string,
+  certType: 'frontend' | 'backend' | 'fullstack'
+): CertificateData | null {
+  const students = getStudents();
+  const student = students.find((s) => s.id === studentId);
+  if (!student) return null;
+
+  student.certificates = student.certificates || [];
+  const titles: Record<'frontend' | 'backend' | 'fullstack', { title: string; track: string; skills: string[]; prefix: string }> = {
+    frontend: {
+      title: 'Frontend Web Dasturchisi Professional Sertifikati',
+      track: 'Frontend Arxitekturasi',
+      skills: ['HTML5', 'CSS3', 'JavaScript ES6+', 'TypeScript', 'React.js', 'Responsive UI'],
+      prefix: 'DMA-FE',
+    },
+    backend: {
+      title: "Backend & Ma'lumotlar Bazasi Muhandisi Sertifikati",
+      track: 'Backend & Database Engineering',
+      skills: ['Node.js', 'Express.js', 'REST API', 'PostgreSQL', 'SQL', 'JWT Auth'],
+      prefix: 'DMA-BE',
+    },
+    fullstack: {
+      title: 'Full-Stack Dasturchi Oliy Darajali Sertifikati',
+      track: 'Full-Stack Software Engineering (100 Mavzu)',
+      skills: ['Frontend (React)', 'Backend (Node.js/Express)', 'SQL/PostgreSQL', 'Full-Stack Architecture'],
+      prefix: 'DMA-FS',
+    },
+  };
+
+  const cfg = titles[certType];
+  const cert: CertificateData = {
+    id: `CERT-${certType.toUpperCase()}-${Date.now().toString().slice(-6)}`,
+    type: certType,
+    title: cfg.title,
+    studentId: student.id,
+    studentName: `${student.name} ${student.surname}`,
+    issueDate: new Date().toISOString().split('T')[0],
+    scorePercentage: 98,
+    skills: cfg.skills,
+    trackName: cfg.track,
+    serialNumber: `${cfg.prefix}-${Math.floor(100000 + Math.random() * 900000)}`,
+  };
+
+  student.certificates.unshift(cert);
+  student.adminMessages = student.adminMessages || [];
+  student.adminMessages.unshift({
+    id: `adm-cert-${Date.now()}`,
+    sender: 'Olimjon Alimjonov (Admin)',
+    title: `🎓 Rasmiy Sertifikat topshirildi: ${cfg.title}`,
+    text: `Tabriklaymiz! Bosh Admin qarori bilan sizga "${cfg.title}" (${cert.serialNumber}) taqdim etildi. Profil bo'limidan yuklab olishingiz mumkin!`,
+    type: 'reward',
+    createdAt: new Date().toLocaleString('uz-UZ'),
+    read: false,
+  });
+
+  saveStudents(students);
+  return cert;
+}
+
+// Admin tomonidan barcha o'quvchilarga yoki ma'lum bosqichdagilarga ommaviy XP, Tanga va Xabar yuborish
+export function broadcastRewardToStudents(params: {
+  targetStage: 'all' | CourseStage;
+  xpBonus: number;
+  coinBonus: number;
+  enablePotion: boolean;
+  messageTitle: string;
+  messageText: string;
+}): number {
+  const students = getStudents();
+  let affected = 0;
+
+  students.forEach((s) => {
+    if (params.targetStage !== 'all' && s.stage !== params.targetStage) return;
+    affected++;
+    if (params.xpBonus !== 0) {
+      s.xp = Math.max(0, (s.xp || 0) + params.xpBonus);
+    }
+    if (params.coinBonus !== 0) {
+      s.coins = Math.max(0, Number(((s.coins || 0) + params.coinBonus).toFixed(1)));
+    }
+    if (params.enablePotion) {
+      s.xpPotionActive = true;
+      s.xpMultiplier = Math.max(s.xpMultiplier || 1, 1.5);
+    }
+    if (params.messageTitle.trim() || params.messageText.trim()) {
+      s.adminMessages = s.adminMessages || [];
+      s.adminMessages.unshift({
+        id: `adm-bcast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        sender: 'Olimjon Alimjonov (Bosh Admin)',
+        title: params.messageTitle.trim() || '🎁 Admin Ommaviy Sovgʻasi va Eʼloni',
+        text:
+          params.messageText.trim() ||
+          `Sizga Admin tomonidan ${params.xpBonus > 0 ? `+${params.xpBonus} XP ` : ''}${
+            params.coinBonus > 0 ? `+${params.coinBonus} tanga ` : ''
+          }taqdim etildi!`,
+        type: 'reward',
+        createdAt: new Date().toLocaleString('uz-UZ'),
+        read: false,
+      });
+    }
+  });
+
+  saveStudents(students);
+  return affected;
+}
+
+
 
 

@@ -1,22 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Send,
   AlertCircle,
   X,
-  ShieldAlert,
   Coins,
-  GraduationCap,
-  Globe,
   ExternalLink,
-  Zap,
-  Sparkles,
-  Brain,
+  Volume2,
+  VolumeX,
+  Square,
 } from 'lucide-react';
 import { askStudentAssistant } from '../services/groqService';
-import { deductCoinsForAi, calculateTokenCost, createAiStageExam } from '../services/storage';
+import {
+  deductCoinsForAi,
+  calculateTokenCost,
+  createAiStageExam,
+} from '../services/storage';
 import { Student, GeneratedTest, CourseStage } from '../types';
 import { GeminiModelChoice, GroundingSource } from './GeminiChatStudioModal';
-import { CmdBekMascot } from './CmdBekMascot';
+import { CmdBekMascot, CmdBekMood } from './CmdBekMascot';
+import { speakUzbekBoyVoice, stopAllBoySpeech } from '../services/ttsService';
 
 interface StudentAiAssistantProps {
   currentLessonTitle: string;
@@ -46,6 +48,7 @@ interface AssistantChatMessage {
   time: string;
   provider?: string;
   sources?: GroundingSource[];
+  mood?: CmdBekMood;
 }
 
 export const StudentAiAssistant: React.FC<StudentAiAssistantProps> = ({
@@ -57,30 +60,70 @@ export const StudentAiAssistant: React.FC<StudentAiAssistantProps> = ({
   onStartStageExam,
   onClose,
 }) => {
-  const [selectedModel, setSelectedModel] = useState<GeminiModelChoice>('gemini-3.8-flash');
-  const [useGoogleSearch, setUseGoogleSearch] = useState<boolean>(false);
+  const userName = student ? `${student.name} ${student.surname}` : 'Dasturchi';
+
+  const [autoSpeak, setAutoSpeak] = useState<boolean>(true);
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [activeMood, setActiveMood] = useState<CmdBekMood>('happy');
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
   const [messages, setMessages] = useState<AssistantChatMessage[]>([
     {
       role: 'assistant',
-      text: `Salom! Men Kodik — sizning **"Yordamchi"** AI repetitoringizman.\n\nHozirgi mavzu: **"${currentLessonTitle}"**.\nTezkor savol bering yoki bosqich imtihoni uchun **"Ustoz menga test bering"** deb yozing!`,
+      text: `Salom, ${student?.name || "do'stim"}! Men CMDbek & Google Gemini AI — o'zbek tilida ravon o'g'il bola ovozida gapiruvchi va hazillar qiladigan AI ustozingizman!\n\nHozirgi mavzu: **"${currentLessonTitle}"**.\nXohlagan savolingizni bering yoki hazil so'rang (faqat iqtisodiy va diniy mavzularda gaplashmayman)!`,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      provider: 'Kodik AI (Gemini 3.8 Flash)',
+      provider: 'Google Gemini + CMDbek (Ovozli)',
+      mood: 'hello',
     },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [coinError, setCoinError] = useState<string | null>(null);
 
+  const stopSpeaking = () => {
+    stopAllBoySpeech();
+    setIsSpeaking(false);
+  };
+
+  const handleStopAiResponse = () => {
+    if (abortControllerRef.current) {
+      try {
+        abortControllerRef.current.abort();
+      } catch {}
+      abortControllerRef.current = null;
+    }
+    stopSpeaking();
+    setLoading(false);
+    setActiveMood('idle');
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  };
+
+  // Doim bir xil o'g'il bola ovozi
+  const speakReply = async (rawText: string) => {
+    await speakUzbekBoyVoice(rawText, {
+      onStart: () => setIsSpeaking(true),
+      onEnd: () => setIsSpeaking(false),
+    });
+  };
+
   const handleSend = async (e?: React.FormEvent, customText?: string) => {
     if (e) e.preventDefault();
     const raw = (customText ?? input).trim();
-    if (!raw || loading) return;
+    if (!raw) return;
+
+    if (loading || isSpeaking) {
+      handleStopAiResponse();
+    }
 
     const userText = raw;
     const userTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const lowerText = userText.toLowerCase();
 
-    setMessages((prev) => [...prev, { role: 'user', text: userText, time: userTime }]);
+    const updatedHistory = [...messages, { role: 'user' as const, text: userText, time: userTime }];
+    setMessages(updatedHistory);
     if (!customText) setInput('');
     setCoinError(null);
 
@@ -91,24 +134,28 @@ export const StudentAiAssistant: React.FC<StudentAiAssistantProps> = ({
           const nextStage = NEXT_STAGES[student.stage] || 'css';
           const newExam = createAiStageExam(student.id, student.name, student.stage, nextStage);
           const aiTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const replyMsg = `Albatta, ${student.name}! Siz hozirda **${student.stage.toUpperCase()}** bosqichidasiz. Siz uchun avtomatik bosqich imtihoni shakllantirildi. Imtihon boshlanmoqda!`;
 
           setMessages((prev) => [
             ...prev,
             {
               role: 'assistant',
-              text: `Albatta, ${student.name}! Siz hozirda **${student.stage.toUpperCase()}** bosqichidasiz. Siz uchun avtomatik bosqich imtihoni shakllantirildi. Imtihon boshlanmoqda!`,
+              text: replyMsg,
               time: aiTime,
-              provider: 'Kodik Exam Engine',
+              provider: 'CMDbek Exam Engine',
+              mood: 'celebrating',
             },
           ]);
+          setActiveMood('celebrating');
           setLoading(false);
+          if (autoSpeak) speakReply(replyMsg);
           onStartStageExam(newExam);
         }, 600);
         return;
       }
     }
 
-    if (student) {
+    if (student && student.id !== 'guest' && !student.isGhostAdminStudent) {
       const deduction = deductCoinsForAi(student.id, userText);
       if (!deduction.success) {
         setCoinError(deduction.message || 'Tanganingiz yetarli emas!');
@@ -118,8 +165,9 @@ export const StudentAiAssistant: React.FC<StudentAiAssistantProps> = ({
             role: 'assistant',
             text: `Savol berish uchun tanganingiz yetarli emas (${calculateTokenCost(
               userText
-            )} tanga kerak, sizda esa ${student.coins} tanga bor). Dars quizlarini yechib tanga ishlab oling!`,
+            )} tanga kerak, sizda esa ${student.coins} tanga bor). Dars testlarini yechib yoki Ligada g'alaba qozonib tanga ishlab oling!`,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            mood: 'oops',
           },
         ]);
         return;
@@ -130,49 +178,58 @@ export const StudentAiAssistant: React.FC<StudentAiAssistantProps> = ({
     }
 
     setLoading(true);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
-      const res = await fetch('/api/gemini/chat', {
+      const res = await fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           message: userText,
-          history: messages.map((m) => ({
-            role: m.role === 'assistant' ? 'model' : 'user',
-            text: m.text,
-          })),
-          model: selectedModel,
-          useGoogleSearch,
-          lessonContext: `Dars: ${currentLessonTitle} (${currentLessonStage}). ${
+          userName,
+          model: 'gemini-3.8-flash',
+          context: `Dars: ${currentLessonTitle} (${currentLessonStage}). ${
             currentCodeSnippet ? `Kod: ${currentCodeSnippet.slice(0, 400)}` : ''
           }`,
+          history: updatedHistory.slice(-14).map((m) => ({
+            sender: m.role === 'user' ? 'user' : 'ai',
+            text: m.text,
+          })),
         }),
       });
 
       if (res.ok) {
         const data = await res.json();
         const aiTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const replyText = data.reply || 'Javob olindi.';
+        const replyMood: CmdBekMood = (data.mood as CmdBekMood) || 'happy';
+        setActiveMood(replyMood);
         setMessages((prev) => [
           ...prev,
           {
             role: 'assistant',
-            text: data.reply || 'Javob olindi.',
+            text: replyText,
             time: aiTime,
-            provider: data.provider || selectedModel,
+            provider: data.provider || 'Google Gemini + CMDbek',
             sources: Array.isArray(data.sources) ? data.sources : [],
+            mood: replyMood,
           },
         ]);
+        if (autoSpeak) speakReply(replyText);
       } else {
         throw new Error('Server fallback');
       }
-    } catch {
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       try {
         const fallbackRes = await askStudentAssistant({
           currentLessonTitle,
           currentLessonStage,
           userPrompt: userText,
           codeSnippet: currentCodeSnippet,
-          chatHistory: messages,
+          chatHistory: updatedHistory,
         });
         const aiTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         setMessages((prev) => [
@@ -181,9 +238,10 @@ export const StudentAiAssistant: React.FC<StudentAiAssistantProps> = ({
             role: 'assistant',
             text: fallbackRes.text,
             time: aiTime,
-            provider: selectedModel,
+            provider: 'Google Gemini + CMDbek',
           },
         ]);
+        if (autoSpeak) speakReply(fallbackRes.text);
       } catch {
         setMessages((prev) => [
           ...prev,
@@ -195,30 +253,26 @@ export const StudentAiAssistant: React.FC<StudentAiAssistantProps> = ({
         ]);
       }
     } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
       setLoading(false);
     }
   };
-
-  const quickPrompts = [
-    'Ustoz menga test bering',
-    'Ushbu kod nima ish bajaradi?',
-    'W3Schools misolida tushuntir',
-    "Sintaksisni sodda misolda ko'rsat",
-  ];
 
   return (
     <div className="flex flex-col h-full aurora-card overflow-hidden">
       {/* Header */}
       <div className="p-3.5 border-b border-white/10 bg-white/5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <CmdBekMascot mood={loading ? 'thinking' : coinError ? 'oops' : 'happy'} size={44} />
+          <CmdBekMascot mood={loading ? 'thinking' : isSpeaking ? 'speaking' : coinError ? 'oops' : activeMood} size={44} />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h4 className="font-black text-sm truncate">CMDbek AI Yordamchi</h4>
               {student && (
                 <span className="aurora-badge bg-[#ffd23f]/20 text-[#ffd23f] font-mono">
                   <Coins className="w-3 h-3" />
-                  <span>{student.coins}</span>
+                  <span>{Number(student.coins || 0).toFixed(1)}</span>
                 </span>
               )}
             </div>
@@ -227,77 +281,30 @@ export const StudentAiAssistant: React.FC<StudentAiAssistantProps> = ({
             </p>
           </div>
         </div>
-        {onClose && (
-          <button onClick={onClose} className="duo-btn duo-btn-surface p-1.5">
-            <X className="w-4 h-4" />
-          </button>
-        )}
-      </div>
 
-      {/* Model & Search Selector Bar */}
-      <div className="px-3 py-2 bg-white/5 border-b border-white/10 flex items-center justify-between gap-1.5 overflow-x-auto">
-        <div className="flex items-center gap-1 bg-black/20 p-1 rounded-xl border border-white/10 shrink-0">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => setSelectedModel('gemini-3.1-flash-lite')}
-            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer ${
-              selectedModel === 'gemini-3.1-flash-lite'
-                ? 'bg-[#3ee6c4] text-[#052922]'
-                : 'opacity-70 hover:opacity-100'
+            onClick={() => {
+              if (isSpeaking) stopSpeaking();
+              setAutoSpeak((v) => !v);
+            }}
+            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 cursor-pointer border ${
+              autoSpeak
+                ? 'bg-[#b6f03c]/20 border-[#b6f03c]/50 text-[#b6f03c]'
+                : 'bg-white/5 border-white/10 opacity-70'
             }`}
+            title="AI javobini ovoz chiqarib o'qish"
           >
-            <Zap className="w-3 h-3" />
-            <span>3.1 Lite</span>
+            {autoSpeak ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            <span>{autoSpeak ? 'Ovoz ON' : 'Ovoz OFF'}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setSelectedModel('gemini-3.8-flash')}
-            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer ${
-              selectedModel === 'gemini-3.8-flash'
-                ? 'bg-[#ff6b86] text-white'
-                : 'opacity-70 hover:opacity-100'
-            }`}
-          >
-            <Sparkles className="w-3 h-3" />
-            <span>3.8 Flash</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedModel('gemini-4-argon')}
-            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer ${
-              selectedModel === 'gemini-4-argon'
-                ? 'bg-[#ffd23f] text-[#2b1d00]'
-                : 'opacity-70 hover:opacity-100'
-            }`}
-          >
-            <Brain className="w-3 h-3" />
-            <span>4 Argon</span>
-          </button>
+          {onClose && (
+            <button onClick={onClose} className="duo-btn duo-btn-surface p-1.5">
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
-
-        <button
-          type="button"
-          onClick={() => setUseGoogleSearch((prev) => !prev)}
-          className={`px-2.5 py-1.5 rounded-xl border text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0 ${
-            useGoogleSearch
-              ? 'bg-[#3ee6c4]/20 border-[#3ee6c4] text-[#3ee6c4]'
-              : 'bg-white/5 border-white/10 opacity-70'
-          }`}
-        >
-          <Globe className="w-3 h-3" />
-          <span>Search {useGoogleSearch ? 'ON' : 'OFF'}</span>
-        </button>
-      </div>
-
-      {/* Guardrail notice */}
-      <div className="px-3.5 py-1.5 bg-black/20 border-b border-white/10 flex items-center justify-between gap-2 text-[11px] opacity-75">
-        <div className="flex items-center gap-1.5 truncate">
-          <ShieldAlert className="w-3.5 h-3.5 text-[#3ee6c4] shrink-0" />
-          <span className="truncate">
-            {useGoogleSearch ? 'Google Search manbalari bilan' : `Faol model: ${selectedModel}`}
-          </span>
-        </div>
-        <span className="text-[10px] font-mono shrink-0 text-[#ffd23f]">0.5 - 2.5 tanga</span>
       </div>
 
       {coinError && (
@@ -322,6 +329,19 @@ export const StudentAiAssistant: React.FC<StudentAiAssistantProps> = ({
               }`}
             >
               <div className="whitespace-pre-wrap">{m.text}</div>
+
+              {m.role === 'assistant' && (
+                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={() => (isSpeaking ? stopSpeaking() : speakReply(m.text))}
+                    className="px-2.5 py-1 rounded-lg bg-[#3ee6c4]/15 text-[#3ee6c4] hover:bg-[#3ee6c4]/25 text-[11px] font-mono font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    {isSpeaking ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+                    <span>{isSpeaking ? "To'xtatish" : 'Eshitish'}</span>
+                  </button>
+                </div>
+              )}
 
               {m.sources && m.sources.length > 0 && (
                 <div className="mt-2.5 pt-2 border-t border-white/10 space-y-1.5">
@@ -353,47 +373,40 @@ export const StudentAiAssistant: React.FC<StudentAiAssistantProps> = ({
         {loading && (
           <div className="flex items-center gap-2 text-xs text-[#3ee6c4] bg-[#3ee6c4]/10 border border-[#3ee6c4]/30 p-3 rounded-2xl w-fit font-bold">
             <CmdBekMascot mood="thinking" size={34} />
-            <span>CMDbek yozayapti…</span>
+            <span>CMDbek o&apos;ylab javob yozayapti…</span>
           </div>
         )}
-      </div>
-
-      {/* Quick Prompts */}
-      <div className="px-3 py-2 bg-white/5 border-t border-white/10 flex items-center gap-1.5 overflow-x-auto text-[11px]">
-        {quickPrompts.map((qp, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => handleSend(undefined, qp)}
-            className={`px-3 py-1.5 rounded-xl border whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer font-bold ${
-              qp.includes('test bering')
-                ? 'bg-[#ffd23f]/20 text-[#ffd23f] border-[#ffd23f]/50'
-                : 'bg-white/5 hover:bg-white/10 border-white/10'
-            }`}
-          >
-            {qp.includes('test bering') && <GraduationCap className="w-3.5 h-3.5" />}
-            {qp}
-          </button>
-        ))}
       </div>
 
       {/* Input */}
       <form onSubmit={(e) => handleSend(e)} className="p-3 border-t border-white/10 bg-white/5 flex items-center gap-2">
         <input
+          ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Savol bering yoki 'Ustoz menga test bering'..."
           className="aurora-input flex-1 text-xs sm:text-sm py-2.5"
         />
-        <button
-          type="submit"
-          disabled={!input.trim() || loading}
-          className="duo-btn duo-btn-coral px-4 py-2.5 text-xs sm:text-sm disabled:opacity-40"
-        >
-          <Send className="w-4 h-4" />
-          <span className="hidden sm:inline">Yuborish</span>
-        </button>
+        {loading || isSpeaking ? (
+          <button
+            type="button"
+            onClick={handleStopAiResponse}
+            className="duo-btn duo-btn-gold px-4 py-2.5 text-xs sm:text-sm font-black flex items-center gap-1.5 cursor-pointer"
+          >
+            <Square className="w-4 h-4 fill-current" />
+            <span>To&apos;xtatish</span>
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={!input.trim()}
+            className="duo-btn duo-btn-coral px-4 py-2.5 text-xs sm:text-sm disabled:opacity-40"
+          >
+            <Send className="w-4 h-4" />
+            <span className="hidden sm:inline">Yuborish</span>
+          </button>
+        )}
       </form>
     </div>
   );

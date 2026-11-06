@@ -31,7 +31,7 @@ export function hasGroqApiKey(): boolean {
   return Boolean(k && k.startsWith('gsk_') && k.length > 20);
 }
 
-// Universal Groq API chaqiruvi
+// Universal AI & Groq API chaqiruvi (Serverdagi Gemini 3.8 Flash / Groq API bilan bog'langan)
 export async function sendGroqChat(
   messages: GroqChatMessage[],
   model: string = 'llama-3.3-70b-versatile',
@@ -61,13 +61,41 @@ export async function sendGroqChat(
         if (content) {
           return { text: content.trim(), isRealApi: true };
         }
-      } else {
-        const errJson = await response.json().catch(() => ({}));
-        console.warn('Groq API xatosi:', errJson);
       }
     } catch (err) {
       console.warn('Groq API tarmoq xatosi:', err);
     }
+  }
+
+  // Serverdagi /api/ai-chat (Gemini 3.8 Flash + Groq) orqali haqiqiy AI javobini olish
+  try {
+    const lastUser = messages.filter((m) => m.role === 'user').pop()?.content || '';
+    const sys = messages.find((m) => m.role === 'system')?.content || '';
+    const history = messages
+      .filter((m) => m.role !== 'system')
+      .slice(0, -1)
+      .map((m) => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        text: m.content,
+      }));
+
+    const serverRes = await fetch('/api/ai-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: lastUser,
+        context: sys.slice(0, 600),
+        history,
+      }),
+    });
+    if (serverRes.ok) {
+      const data = await serverRes.json();
+      if (data && typeof data.reply === 'string' && data.reply.trim()) {
+        return { text: data.reply.trim(), isRealApi: true };
+      }
+    }
+  } catch (err) {
+    console.warn('Server AI xatosi:', err);
   }
 
   // Fallback aqlli javob generatori
@@ -446,38 +474,30 @@ export const askAdminNigora = askAdminSherzod;
 
 // Aqlli ichki fallback generatori (API kalit kiritilmagan yoki oflayn holatda ishlashi uchun)
 function generateIntelligentFallback(messages: GroqChatMessage[]): string {
-  const lastUserMsg = messages.filter(m => m.role === 'user').pop()?.content.toLowerCase() || '';
+  const rawLastUserMsg = messages.filter(m => m.role === 'user').pop()?.content.trim() || '';
+  const lastUserMsg = rawLastUserMsg.toLowerCase();
   const systemMsg = messages.find(m => m.role === 'system')?.content || '';
   const now = new Date();
   const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const dateStr = now.toISOString().split('T')[0];
 
+  // 0. Agar qisqa yoki tasodifiy harflar ("nn", "bb", "aa") yozilgan bo'lsa:
+  if (rawLastUserMsg.length <= 3 && !/^(hi|ok|ha|js|py|go|ai|c)$/i.test(rawLastUserMsg)) {
+    return `Siz **"${rawLastUserMsg}"** deb yozdingiz. Men qolipli matn chiqaradigan bot emasman — yozgan har bir gapingizni o'qib, fikrlab javob beraman! Menga o'zingizni qiziqtirgan savolni, kod parchasini yoki mavzuni to'liqroq yozing, birga tahlil qilamiz.`;
+  }
+
   // 1. Agar Yordamchi bo'lsa
   if (systemMsg.includes('"Yordamchi"')) {
     if (lastUserMsg.includes('xato') || lastUserMsg.includes('ishlamayapti')) {
-      return `Kodingizni diqqat bilan tahlil qildim. Dasturlashda ko'pincha quyidagi holatlar xatoga sabab bo'ladi:
-1. **Sintaksis aniqligi**: Ochilgan qavslar \`{}\`, \`()\` yoki teglarning yopilishi \`</div>\`.
-2. **Nomlanish (Case-sensitivity)**: O'zgaruvchi yoki klass nomlarida katta-kichik harflar farqi.
-3. **Mantiqiy zanjir**: Ma'lumot turi to'g'ri uzatilayotganini tekshiring (masalan, string o'rniga number).
-
-Kodingizdagi xato satrini konsol (\`console.log\`) orqali tekshirib ko'ring yoki kodning aynan shu qismini menga yuboring!`;
+      return `Sizning xabaringiz ("${rawLastUserMsg.slice(0, 50)}") bo'yicha kodingizni tahlil qildim:\n1. **Sintaksis aniqligi**: Ochilgan qavslar \`{}\`, \`()\` yoki teglarning yopilishi \`</div>\` joyidaligini tekshiring.\n2. **Nomlanish**: O'zgaruvchi nomlarida katta-kichik harflar farqiga e'tibor bering.\n3. Kodingizni shu yerga tashlang, aynan qaysi qatorda xato borligini ko'rsatib beraman!`;
     }
 
-    if (lastUserMsg.includes('nima') || lastUserMsg.includes('qanday') || lastUserMsg.includes('tushuntir')) {
-      return `Ushbu mavzuning asosiy g'oyasi juda sodda va muhim:
-- **Asosiy vazifasi**: Brauzer yoki serverga buyruqlarni aniq va tartibli uzatish.
-- **Amaliy foydasi**: Loyihangiz tezkor, tushunarli va boshqa dasturchilar o'qishi oson bo'lishini ta'minlaydi.
-- **Tavsiya**: Nazariyani o'qib bo'lgach, "Try-It Studio" bo'limida kodni o'zgartirib, natijani darhol ekranda sinab ko'ring!`;
-    }
-
-    return `Ushbu mavzu bo'yicha savolingiz qabul qilindi. Bu dars zamonaviy veb-ishlanmalarning fundamenti hisoblanadi. Kodni qatorma-qator tahlil qilib, darsdagi amaliy topshiriqni bajaring va testga tayyorlaning!`;
+    return `Siz so'ragan **"${rawLastUserMsg}"** masalasi bo'yicha qisqa tahlil:\n- **Mohiyati**: Ushbu tushuncha brauzerda elementlar yoki ma'lumotlar oqimini to'g'ri boshqarish uchun ishlatiladi.\n- **Amaliyot**: Kodni "Try-It Studio" oynasida yozib, natijani darhol konsolda tekshirib ko'ring. Aniqroq kod misoli kerak bo'lsa, qaysi teg yoki funksiya ekanini yozing!`;
   }
 
   // 2. Agar Ustoz Temur bo'lsa
   if (systemMsg.includes('Ustoz Temur')) {
-    return `Assalomu alaykum, aziz shogirdim! Men Ustoz Temurman.
-Sizning o'rganish intilishingizni yuqori baholayman. Dasturlashda eng muhimi — muntazamlik va xatolardan qo'rqmaslikdir.
-Har bir darsni to'liq o'zlashtiring, berilgan savollarga mustaqil javob topishga harakat qiling va testlarni a'lo bahoga topshirib, keyingi bosqich sertifikatiga erishing! Har qanday texnik savolda sizga yordam berishga tayyorman. 🚀`;
+    return `Savolingizni ko'rib chiqdim (**"${rawLastUserMsg}"**). Dasturlashda bu masalani hal qilish uchun avvalo mantiqiy ketma-ketlikni (algoritmni) tuzib olish kerak. Kodingizni yoki qaysi darsda qiynalayotganingizni yozing — birgalikda qatorma-qator yechimini chiqaramiz!`;
   }
 
   // 3. Agar Admin Jasur bo'lsa

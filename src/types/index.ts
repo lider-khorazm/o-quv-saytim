@@ -24,6 +24,16 @@ export interface CertificateData {
   serialNumber: string;
 }
 
+export interface AdminStudentMessage {
+  id: string;
+  sender: string;
+  title: string;
+  text: string;
+  type: 'streak_warning' | 'admin_notice' | 'reward' | 'battle';
+  createdAt: string;
+  read?: boolean;
+}
+
 export interface Student {
   id: string;
   name: string;
@@ -31,6 +41,7 @@ export interface Student {
   username: string; // Login
   password?: string; // Parol
   avatar: string;
+  bio?: string; // Foydalanuvchi haqida qisqacha ma'lumot (Telegram/Instagram uslubida)
   phone: string;
   email: string;
   age?: number; // Kamida 13 yosh bo'lishi shart
@@ -44,9 +55,22 @@ export interface Student {
   gameScores?: Record<string, number>; // GameId -> ball
   certificates?: CertificateData[];
   ownedShopIds?: string[]; // Markaziy bazada saqlanadigan do'kon xaridlari
-  equippedFrame?: string; // Markaziy bazada saqlanadigan profil ramkasi
-  equippedBadge?: string; // Markaziy bazada saqlanadigan dasturchi unvoni
+  equippedFrame?: string; // Markaziy bazada saqlanadigan profil ramkasi ID
+  equippedBadge?: string; // Markaziy bazada saqlanadigan stiker/nishon ID
   claimedQuests?: string[]; // Bajarilgan kunlik vazifalar
+  xpPotionActive?: boolean; // 1.5x XP Potion faolligi
+  xpMultiplier?: number; // 1.25x, 1.5x, 1.75x, 2.0x, 2.5x, 3.0x XP Damlamasi koeffitsiyenti
+  xpBoostUntil?: number; // Vaqtli XP boost tugash vaqti (timestamp)
+  xpBoostRatePerSec?: number; // Sekundiga nechta XP qo'shishi (masalan +2 XP/sek)
+  pvpShieldCount?: number; // PvP mag'lubiyatdan himoya qalqoni soni
+  pvpDoubleRewardCount?: number; // PvP g'alabani 2x ko'paytiruvchi tumor soni
+  freeAiQuestionsCount?: number; // Tangasiz bepul AI savollar kvotasi
+  isGhostAdminStudent?: boolean; // Admin "O'quvchi sifatida kirish" maxfiy #1 rejimi (faqat adminga ko'rinadi)
+  isOnline?: boolean; // Online / Offline holati
+  lastSeenAt?: number; // Oxirgi faollik vaqti (ms)
+  adminMessages?: AdminStudentMessage[]; // Admin yuborgan streak va tizim xabarlari
+  pvpWins?: number;
+  pvpLosses?: number;
   stageCompletedPendingTest?: CourseStage; // Ustoz test berishi kerak bo'lgan bosqich
   lastActive: string;
   joinedDate: string;
@@ -73,14 +97,79 @@ export interface Teacher {
   isAiTeacher?: boolean; // Groq asosidagi avtomatlashgan AI Ustoz
 }
 
+export type SubAdminDepartment =
+  | 'database'
+  | 'feedback_bugs'
+  | 'economy_shop'
+  | 'pvp_league'
+  | 'students_teachers'
+  | 'streak_messages'
+  | 'cmdbek_ai';
+
+export interface SubAdminTask {
+  id: string;
+  title: string;
+  department: SubAdminDepartment;
+  completed: boolean;
+  createdAt: string;
+}
+
+export interface SubAdmin {
+  id: string;
+  name: string;
+  surname: string;
+  username: string;
+  password: string;
+  roleTitle: string;
+  permissions: SubAdminDepartment[];
+  assignedTasks: SubAdminTask[];
+  createdAt: string;
+  active: boolean;
+}
+
+export interface FeedbackReport {
+  id: string;
+  firstName: string;
+  lastName: string;
+  contact: string; // Telefon raqami yoki Gmail manzili
+  type: 'bug' | 'suggestion';
+  message: string;
+  mediaUrl?: string; // Rasm yoki video (DataURL)
+  mediaType?: 'image' | 'video';
+  mediaName?: string;
+  status: 'new' | 'in_progress' | 'resolved';
+  assignedAdminId?: string;
+  assignedAdminName?: string;
+  adminReply?: string;
+  createdAt: string;
+}
+
+export interface AiChatMemoryMessage {
+  id: string;
+  sender: 'user' | 'ai';
+  text: string;
+  provider?: string;
+  time: string;
+}
+
+export interface AiConversationMemory {
+  userId: string;
+  userName: string;
+  facts: string[];
+  messages: AiChatMemoryMessage[];
+  updatedAt: string;
+}
+
 export interface AuthUser {
   id: string;
   name: string;
-  role: 'owner' | 'teacher' | 'student';
+  role: 'owner' | 'sub_admin' | 'teacher' | 'student';
   username: string;
   email?: string;
   avatar?: string;
   isGoogleUser?: boolean;
+  subAdminPermissions?: SubAdminDepartment[];
+  subAdminRoleTitle?: string;
 }
 
 export interface OwnerProfile {
@@ -219,7 +308,7 @@ export interface LessonQuizQuestion {
 export interface Lesson {
   id: string;
   stage: CourseStage;
-  trackCategory?: string; // masalan: "HTML5 & Semantika", "Backend & Express", "Ma'lumotlar Bazasi (SQL)", "Full-Stack & DevOps"
+  trackCategory?: string;
   title: string;
   duration: string;
   xpReward: number;
@@ -237,10 +326,9 @@ export interface Lesson {
   syntaxBreakdown?: { term: string; meaning: string }[];
   commonMistakes?: LessonCommonMistake[];
   interviewQuestions?: LessonInterviewQuestion[];
-  quiz?: LessonQuizQuestion[]; // Darsdan so'ng XP olish uchun maxsus test
+  quiz?: LessonQuizQuestion[];
 }
 
-// Groq AI turlari
 export interface GroqChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -284,15 +372,14 @@ export type HumorStyle = 'quvnoq' | 'sarkastik' | 'dono_jora' | 'otaku_hype';
 export interface AiFriendPersona {
   id: string;
   name: string;
-  avatar: string; // Emoji yoki rasm URL
+  avatar: string;
   targetType: 'owner' | 'teacher' | 'student';
-  targetId: string; // 'owner' | teacherId | studentId
-  targetName: string; // Masalan: "Olimjon Alimjonov (Lord)" yoki "Ustoz Jamshid"
+  targetId: string;
+  targetName: string;
   humorStyle: HumorStyle;
-  favoriteAnimes: string[]; // ['Naruto', 'One Piece', 'Jujutsu Kaisen', ...]
-  catchphrase: string; // Masalan: "Shinra Tensei!", "Dattebayo!"
+  favoriteAnimes: string[];
+  catchphrase: string;
   customInstructions?: string;
   isActive: boolean;
   createdAt: string;
 }
-

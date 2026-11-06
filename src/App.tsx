@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { STORE_EVENT } from './services/remoteStore';
-import { Header } from './components/Header';
+import { Header, TopMenuTab } from './components/Header';
 import { LandingPage } from './components/LandingPage';
-import { OwnerBioBanner } from './components/OwnerBioBanner';
+import { PortfolioShowcase } from './components/PortfolioShowcase';
 import { StudentView } from './components/StudentView';
 import { AiTeacherView } from './components/AiTeacherView';
 import { AdminView } from './components/AdminView';
@@ -24,7 +25,7 @@ import {
   ExpelRequest,
   CourseStage,
   GeneratedTest,
-  AuthUser
+  AuthUser,
 } from './types';
 import {
   initializeStorage,
@@ -34,22 +35,26 @@ import {
   getTestSubmissions,
   getExpelRequests,
   getCurrentAuthUser,
-  setCurrentAuthUser,
   logoutUser,
   addTeacher,
   deleteTeacher,
   adminApproveStageUpgrade,
   resolveExpelRequest,
   markNotificationAsRead,
-  completeStudentLesson
+  completeStudentLesson,
+  updateStudent,
+  createGhostAdminStudentProfile,
 } from './services/storage';
 import { useTheme } from './context/ThemeContext';
 
 export default function App() {
-  const { theme, isTransitioning } = useTheme();
+  const { isTransitioning } = useTheme();
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [currentRole, setCurrentRole] = useState<'student' | 'teacher' | 'admin'>('student');
   const [showLandingPage, setShowLandingPage] = useState<boolean>(true);
+  const [showPortfolioPage, setShowPortfolioPage] = useState<boolean>(false);
+  const [activeTopTab, setActiveTopTab] = useState<TopMenuTab>('asosiy');
+  const [ghostAdminStudentMode, setGhostAdminStudentMode] = useState<boolean>(false);
 
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -102,8 +107,10 @@ export default function App() {
 
     if (auth) {
       setShowLandingPage(false);
-      if (auth.role === 'owner') {
-        setCurrentRole('admin');
+      if (auth.role === 'owner' || auth.role === 'sub_admin') {
+        if (!ghostAdminStudentMode) {
+          setCurrentRole('admin');
+        }
       } else if (auth.role === 'teacher') {
         setCurrentRole('teacher');
         setSelectedTeacherId(auth.id);
@@ -135,6 +142,36 @@ export default function App() {
   useEffect(() => {
     refreshAllData();
   }, []);
+
+  // Track student Online / Offline status in real time
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'student') return;
+    const studentId = currentUser.id;
+
+    const setStatus = (online: boolean) => {
+      updateStudent(studentId, {
+        isOnline: online,
+        lastActive: online ? 'Hozir online' : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        lastSeenAt: Date.now(),
+      });
+    };
+
+    setStatus(navigator.onLine !== false);
+
+    const onOnline = () => setStatus(true);
+    const onOffline = () => setStatus(false);
+    const onBeforeUnload = () => setStatus(false);
+
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    window.addEventListener('beforeunload', onBeforeUnload);
+
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, [currentUser?.id, currentUser?.role]);
 
   // Boshqa kompyuterlarda o'zgargan ma'lumotlarni (serverdan) yengil yangilash
   const reloadSharedRef = useRef<() => void>(() => {});
@@ -168,9 +205,12 @@ export default function App() {
     }
   }, [selectedTeacherId, teachers, students]);
 
-  const selectedStudent =
-    students.find((s) => s.id === (currentUser?.role === 'student' ? currentUser.id : selectedStudentId)) ||
-    (students.length > 0 ? students[0] : null);
+  const ghostAdminStudent = ghostAdminStudentMode ? createGhostAdminStudentProfile() : null;
+
+  const selectedStudent = ghostAdminStudent
+    ? ghostAdminStudent
+    : students.find((s) => s.id === (currentUser?.role === 'student' ? currentUser.id : selectedStudentId)) ||
+      (students.length > 0 ? students[0] : null);
 
   const selectedTeacher =
     teachers.find((t) => t.id === (currentUser?.role === 'teacher' ? currentUser.id : selectedTeacherId)) ||
@@ -191,17 +231,25 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    if (currentUser?.role === 'student') {
+      updateStudent(currentUser.id, { isOnline: false, lastActive: 'Yaqinda' });
+    }
     logoutUser();
     setCurrentUser(null);
     setCurrentRole('student');
+    setGhostAdminStudentMode(false);
     setShowLandingPage(true);
+    setShowPortfolioPage(false);
   };
 
   const handleAuthSuccess = (user: AuthUser) => {
     setCurrentUser(user);
+    setGhostAdminStudentMode(false);
     setShowLandingPage(false);
+    setShowPortfolioPage(false);
+    setActiveTopTab('asosiy');
 
-    if (user.role === 'owner') {
+    if (user.role === 'owner' || user.role === 'sub_admin') {
       setCurrentRole('admin');
     } else if (user.role === 'teacher') {
       setCurrentRole('teacher');
@@ -209,6 +257,7 @@ export default function App() {
     } else if (user.role === 'student') {
       setCurrentRole('student');
       setSelectedStudentId(user.id);
+      updateStudent(user.id, { isOnline: true, lastActive: 'Hozir online' });
     }
     refreshAllData();
   };
@@ -228,7 +277,7 @@ export default function App() {
   };
 
   const handleCompleteLesson = (lessonId: string) => {
-    if (selectedStudent) {
+    if (selectedStudent && !selectedStudent.isGhostAdminStudent) {
       completeStudentLesson(selectedStudent.id, lessonId);
       refreshAllData();
     }
@@ -269,7 +318,7 @@ export default function App() {
         <div className="fixed inset-0 pointer-events-none z-[9999] theme-fade-overlay bg-[#ff6b86]/10 backdrop-blur-[0.5px]" />
       )}
 
-      {/* Global Header */}
+      {/* Global Header with 3 Main Buttons: Profil | Asosiy | Sahifalar */}
       <Header
         currentUser={currentUser}
         selectedStudent={selectedStudent}
@@ -284,23 +333,71 @@ export default function App() {
         onLogout={handleLogout}
         unreadNotesCount={notifications.filter((n) => !n.read).length}
         showLandingPage={showLandingPage}
-        onToggleLandingPage={setShowLandingPage}
+        onToggleLandingPage={(show) => {
+          setShowLandingPage(show);
+          if (!show) setShowPortfolioPage(false);
+        }}
         onOpenGroqConfig={() => setShowGroqConfigModal(true)}
+        activeTopTab={activeTopTab}
+        onSelectTopTab={(tab) => {
+          setShowLandingPage(false);
+          setShowPortfolioPage(false);
+          setActiveTopTab(tab);
+        }}
       />
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {(!currentUser || showLandingPage) ? (
-          <LandingPage
-            onOpenLogin={handleOpenLogin}
-            onOpenRegister={handleOpenRegister}
-            onOpenTestIdModal={() => handleOpenTestIdModal()}
-            students={students}
-            teachers={teachers}
-          />
+        {!currentUser || showLandingPage ? (
+          <div className="space-y-4">
+            {currentUser && showLandingPage && (
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLandingPage(false);
+                    setActiveTopTab('sahifalar');
+                  }}
+                  className="duo-btn duo-btn-surface !py-2 !px-4 text-xs flex items-center gap-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Sahifalar Menyusiga Qaytish</span>
+                </button>
+              </div>
+            )}
+            <LandingPage
+              onOpenLogin={handleOpenLogin}
+              onOpenRegister={handleOpenRegister}
+              onOpenTestIdModal={() => handleOpenTestIdModal()}
+              students={students}
+              teachers={teachers}
+            />
+          </div>
+        ) : showPortfolioPage ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPortfolioPage(false);
+                  setActiveTopTab('sahifalar');
+                }}
+                className="duo-btn duo-btn-surface !py-2 !px-4 text-xs flex items-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Sahifalar Menyusiga Qaytish</span>
+              </button>
+            </div>
+            <PortfolioShowcase
+              currentUser={currentUser}
+              student={selectedStudent}
+              onOpenLogin={handleOpenLogin}
+            />
+          </div>
         ) : (
           <div className="space-y-6">
-            {currentUser.role === 'student' && (
+            {(currentUser.role === 'student' ||
+              ((currentUser.role === 'owner' || currentUser.role === 'sub_admin') && ghostAdminStudentMode)) && (
               <StudentView
                 student={selectedStudent}
                 teacher={studentTeacher}
@@ -311,6 +408,14 @@ export default function App() {
                 onCompleteLesson={handleCompleteLesson}
                 onOpenRegisterModal={handleOpenRegister}
                 onOpenGroqConfig={() => setShowGroqConfigModal(true)}
+                topTab={activeTopTab}
+                onSelectTopTab={(tab) => setActiveTopTab(tab)}
+                onOpenLandingPage={() => setShowLandingPage(true)}
+                onOpenPortfolioPage={() => setShowPortfolioPage(true)}
+                onRefreshData={refreshAllData}
+                onExitGhostStudentMode={
+                  ghostAdminStudentMode ? () => setGhostAdminStudentMode(false) : undefined
+                }
               />
             )}
 
@@ -330,12 +435,13 @@ export default function App() {
               />
             )}
 
-            {currentUser.role === 'owner' && (
+            {(currentUser.role === 'owner' || currentUser.role === 'sub_admin') && !ghostAdminStudentMode && (
               <AdminView
                 teachers={teachers}
                 students={students}
                 testSubmissions={testSubmissions}
                 expelRequests={expelRequests}
+                currentUser={currentUser}
                 onAddTeacher={handleAddTeacher}
                 onDeleteTeacher={handleDeleteTeacher}
                 onApproveUpgrade={handleApproveUpgrade}
@@ -343,6 +449,10 @@ export default function App() {
                 onOpenGroupChat={handleOpenGroupChat}
                 onOpenGroqConfig={() => setShowGroqConfigModal(true)}
                 onRefreshData={refreshAllData}
+                onEnterAsStudent={() => {
+                  setGhostAdminStudentMode(true);
+                  setActiveTopTab('asosiy');
+                }}
               />
             )}
           </div>
@@ -364,7 +474,7 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-3 opacity-80">
             <span>HTML · CSS · JavaScript</span>
             <span aria-hidden="true">·</span>
-            <span>Kunlik Streak &amp; Liga</span>
+            <span>Kunlik Streak &amp; PvP Liga</span>
             <span aria-hidden="true">·</span>
             <span>Test ID &amp; PDF Sertifikat</span>
           </div>
@@ -373,7 +483,6 @@ export default function App() {
 
       {/* ===================== MODALS ===================== */}
 
-      {/* 1. Direct Registration Modal with masked password & random assignment */}
       {showDirectRegisterModal && (
         <RegistrationModal
           onClose={() => setShowDirectRegisterModal(false)}
@@ -389,7 +498,6 @@ export default function App() {
         />
       )}
 
-      {/* 2. Auth Modal (Login / Register) */}
       {showAuthModal && (
         <AuthModal
           initialTab={authModalTab}
@@ -405,7 +513,6 @@ export default function App() {
         />
       )}
 
-      {/* 3. Ustoz test berishi (Test ID generator) */}
       {testCreationTarget && selectedTeacher && (
         <CreateTestModal
           teacher={selectedTeacher}
@@ -413,13 +520,12 @@ export default function App() {
           initialStage={testCreationTarget.stage}
           studentsList={students.filter((s) => s.teacherId === selectedTeacher.id)}
           onClose={() => setTestCreationTarget(null)}
-          onTestCreated={(newTest: GeneratedTest) => {
+          onTestCreated={(_newTest: GeneratedTest) => {
             refreshAllData();
           }}
         />
       )}
 
-      {/* 4. Talaba Test ID bilan kirib test yechishi (bir martalik, o'chadi) */}
       {showTestIdModal && (
         <TestTakingModal
           initialTestId={initialTestIdForModal}
@@ -433,7 +539,6 @@ export default function App() {
         />
       )}
 
-      {/* 5. Final Katta Qiyin Imtihon */}
       {showFinalExamModal && (
         <FinalExamModal
           student={
@@ -462,7 +567,6 @@ export default function App() {
         />
       )}
 
-      {/* 6. 15 kishilik Maxsus Guruh Chati (Ustoz + 15 talaba + Admin) */}
       {showGroupChatModal && (
         <GroupChatModal
           teacher={
@@ -483,7 +587,6 @@ export default function App() {
         />
       )}
 
-      {/* 7. Ustoz o'quvchiga shaxsiy xabar yuborishi */}
       {messageTargetStudent && selectedTeacher && (
         <MessageModal
           teacher={selectedTeacher}
@@ -495,7 +598,6 @@ export default function App() {
         />
       )}
 
-      {/* 8. Ustoz o'quvchini chetlatishni adminga aytishi */}
       {expelTargetStudent && selectedTeacher && (
         <ExpelModal
           teacher={selectedTeacher}
@@ -507,7 +609,6 @@ export default function App() {
         />
       )}
 
-      {/* 9. Groq AI Sozlamalari Modali (Llama 3.3 70B) */}
       {showGroqConfigModal && (
         <GroqConfigModal
           onClose={() => setShowGroqConfigModal(false)}
