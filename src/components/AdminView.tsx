@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Crown,
   Users,
@@ -92,7 +92,16 @@ import { AuroraMascot } from './AuroraMascot';
 import { AvatarWithFrame, ORNATE_SHOP_FRAMES } from './AvatarWithFrame';
 import { StudentPublicProfileModal } from './StudentPublicProfileModal';
 import { CmdBekMascot, CmdBekMood } from './CmdBekMascot';
-import { speakUzbekBoyVoice } from '../services/ttsService';
+import {
+  speakUzbekBoyVoice,
+  stopAllBoySpeech,
+  CMDBEK_VOICE_PRESETS,
+  CmdBekVoiceConfig,
+  getGlobalCmdBekVoiceConfig,
+  saveGlobalCmdBekVoiceConfig,
+  getAllBrowserSpeechVoices,
+  previewVoiceConfig,
+} from '../services/ttsService';
 
 interface AdminViewProps {
   currentUser?: AuthUser | null;
@@ -224,8 +233,47 @@ export const AdminView: React.FC<AdminViewProps> = ({
     | 'legend_podium_config'
     | 'promo_and_awards'
     | 'security_inspector'
+    | 'cmdbek_voice_studio'
   >('control_center');
   const { setIsBackgroundModalOpen } = useBackground();
+
+  // CMDbek Global Voice Studio State (Admin listens and picks 1 single voice for everyone)
+  const [activeVoiceConfig, setActiveVoiceConfig] = useState<CmdBekVoiceConfig>(() =>
+    getGlobalCmdBekVoiceConfig()
+  );
+  const [browserVoicesList, setBrowserVoicesList] = useState<SpeechSynthesisVoice[]>([]);
+  const [voiceSampleText, setVoiceSampleText] = useState<string>(
+    "Salom do'stim! Men CMDbek sun'iy intellekt ustozman. Dasturlashni birgalikda o'rganamiz va ajoyib loyihalar yaratamiz!"
+  );
+  const [customPitch, setCustomPitch] = useState<number>(activeVoiceConfig.pitch || 0.96);
+  const [customRate, setCustomRate] = useState<number>(activeVoiceConfig.rate || 1.03);
+  const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
+  const [presetCategoryFilter, setPresetCategoryFilter] = useState<
+    'all' | 'uz_tr' | 'ru_cyrl' | 'browser_classic' | 'gemini_special'
+  >('all');
+  const [presetGenderFilter, setPresetGenderFilter] = useState<
+    'all' | 'male' | 'female' | 'robot'
+  >('all');
+  const [voiceLangFilter, setVoiceLangFilter] = useState<'all' | 'uz_tr' | 'ru' | 'en'>('all');
+
+  useEffect(() => {
+    let mounted = true;
+    const loadVoices = async () => {
+      const list = await getAllBrowserSpeechVoices();
+      if (mounted) setBrowserVoicesList(list);
+    };
+    loadVoices();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        if (mounted) {
+          setBrowserVoicesList(window.speechSynthesis.getVoices() || []);
+        }
+      };
+    }
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Legend Podium Profile state (stands above #1 on the Podium)
   const [legendProfile, setLegendProfile] = useState<Student>(() => getLegendAdminStudentProfile());
@@ -773,11 +821,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
       {/* Main Grid: Sidebar + Active View */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Sidebar Menu (16-Bo'limli Admin Labirint Boshqaruv Markazi) */}
+        {/* Left Sidebar Menu (17-Bo'limli Admin Labirint Boshqaruv Markazi) */}
         <aside className="lg:col-span-3 space-y-3">
           <div className="aurora-card p-4 space-y-1.5">
             <p className="text-[11px] font-black uppercase tracking-wider text-[#ffd23f] px-2 pb-1">
-              Admin Labirint Markazi (16 Bo&apos;lim)
+              Admin Labirint Markazi (17 Bo&apos;lim)
             </p>
             <button
               onClick={() => setActiveTab('control_center')}
@@ -992,6 +1040,24 @@ export const AdminView: React.FC<AdminViewProps> = ({
             >
               <Shield className="w-4 h-4 shrink-0" />
               <span>16. 🛡️ Parol &amp; Xavfsizlik</span>
+            </button>
+
+            <button
+              onClick={() => {
+                const cfg = getGlobalCmdBekVoiceConfig();
+                setActiveVoiceConfig(cfg);
+                setCustomPitch(cfg.pitch || 0.96);
+                setCustomRate(cfg.rate || 1.03);
+                setActiveTab('cmdbek_voice_studio');
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
+                activeTab === 'cmdbek_voice_studio'
+                  ? 'bg-gradient-to-r from-[#3ee6c4] via-[#ffd23f] to-[#ff6b86] text-[#0a0912] shadow-lg'
+                  : 'hover:bg-white/5 opacity-75 hover:opacity-100 border border-[#3ee6c4]/35'
+              }`}
+            >
+              <Volume2 className="w-4 h-4 shrink-0" />
+              <span>17. 🔊 CMDbek Ovozini Tanlash</span>
             </button>
           </div>
 
@@ -1477,6 +1543,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       </p>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('cmdbek_voice_studio')}
+                    className="duo-btn duo-btn-mint text-xs shrink-0 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                    <span>🔊 CMDbek Ovozini O&apos;zgartirish</span>
+                  </button>
                 </div>
 
                 {/* Emotion Preview Switcher (All 13 Sticker Emotions) */}
@@ -3377,6 +3451,563 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 17: 🔊 CMDBEK OVOZINI TANLASH VA BARCHA UCHUN YAGONA OVOZ QILISH STUDIYASI */}
+          {activeTab === 'cmdbek_voice_studio' && (
+            <div className="space-y-6">
+              {/* Top Active Global Voice Card */}
+              <div className="aurora-card p-6 space-y-5 border-2 border-[#3ee6c4]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <CmdBekMascot
+                      mood={previewingVoiceId ? 'speaking' : 'happy'}
+                      size={74}
+                    />
+                    <div>
+                      <span className="text-[11px] font-mono font-extrabold text-[#3ee6c4] uppercase">
+                        BO&apos;LIM 17 · YAGONA PLATFORM OVOZI STUDIYASI
+                      </span>
+                      <h3 className="text-xl font-black flex items-center gap-2 mt-0.5">
+                        <Volume2 className="w-6 h-6 text-[#ffd23f]" />
+                        <span>🔊 CMDbek Ovozini Eshitib Tanlash (Hamma Uchun Yagona Ovoz)</span>
+                      </h3>
+                      <p className="text-xs opacity-75 mt-1">
+                        Quyidagi ovozlardan xohlaganingizni eshitib ko&apos;ring va ma&apos;qul bo&apos;lganini tanlang — tanlangan ovoz barcha o&apos;quvchilar va ustozlar uchun yagona o&apos;zgarmas ovozga aylanadi!
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreviewingVoiceId('current-active');
+                        const previewCfg: CmdBekVoiceConfig = {
+                          ...activeVoiceConfig,
+                          pitch: customPitch,
+                          rate: customRate,
+                          edgePitchHz:
+                            customPitch !== activeVoiceConfig.pitch
+                              ? undefined
+                              : activeVoiceConfig.edgePitchHz,
+                          edgeRatePct:
+                            customRate !== activeVoiceConfig.rate
+                              ? undefined
+                              : activeVoiceConfig.edgeRatePct,
+                        };
+                        previewVoiceConfig(voiceSampleText, previewCfg, {
+                          onStart: () => setPreviewingVoiceId('current-active'),
+                          onEnd: () => setPreviewingVoiceId(null),
+                        });
+                      }}
+                      className="duo-btn duo-btn-mint text-xs cursor-pointer"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                      <span>Joriy Ovozni Eshitish</span>
+                    </button>
+
+                    {(customPitch !== activeVoiceConfig.pitch ||
+                      customRate !== activeVoiceConfig.rate) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updatedCfg: CmdBekVoiceConfig = {
+                            ...activeVoiceConfig,
+                            pitch: customPitch,
+                            rate: customRate,
+                            edgePitchHz: `${
+                              Math.round((customPitch - 1.0) * 80) >= 0 ? '+' : ''
+                            }${Math.round((customPitch - 1.0) * 80)}Hz`,
+                            edgeRatePct: `${
+                              Math.round((customRate - 1.0) * 100) >= 0 ? '+' : ''
+                            }${Math.round((customRate - 1.0) * 100)}%`,
+                          };
+                          const saved = saveGlobalCmdBekVoiceConfig(updatedCfg);
+                          setActiveVoiceConfig(saved);
+                          recordAdminAction(
+                            `🔊 "${saved.shortName || saved.label}" ovoz tembri (${customPitch}) va tezligi (${customRate}x) saqlandi!`
+                          );
+                        }}
+                        className="duo-btn duo-btn-gold text-xs cursor-pointer"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>Tembr va Tezlikni Saqlash</span>
+                      </button>
+                    )}
+
+                    {previewingVoiceId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          stopAllBoySpeech();
+                          setPreviewingVoiceId(null);
+                        }}
+                        className="duo-btn duo-btn-coral text-xs cursor-pointer"
+                      >
+                        <span>⏹️ Ovozni To&apos;xtatish</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Current Active Global Voice Summary Banner */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-[#3ee6c4]/15 via-[#181529] to-[#ffd23f]/15 border border-[#3ee6c4]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-mono font-extrabold text-[#ffd23f] uppercase block">
+                      🌐 HOZIRDA BARCHA FOYDALANUVCHILAR UCHUN O&apos;RNATILGAN YAGONA OVOZ:
+                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <strong className="text-sm sm:text-base font-black text-white">
+                        {activeVoiceConfig.label}
+                      </strong>
+                      <span className="px-2.5 py-0.5 rounded-lg bg-[#3ee6c4] text-[#0a0912] font-mono text-xs font-black">
+                        Til: {activeVoiceConfig.lang}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-lg bg-white/10 font-mono text-xs font-bold">
+                        Tembr (Pitch): {activeVoiceConfig.pitch} · Tezlik (Rate): {activeVoiceConfig.rate}x
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono opacity-75">
+                    Yangilangan: {activeVoiceConfig.updatedAt}
+                  </span>
+                </div>
+
+                {/* Test Sentence & Pitch / Rate Fine-Tuning Controls */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pt-2 border-t border-white/10">
+                  <div className="lg:col-span-6 space-y-1.5">
+                    <label className="text-xs font-bold block text-[#ffd23f]">
+                      📝 Ovozlarni tekshirib eshitish uchun sinov jumlasi:
+                    </label>
+                    <input
+                      type="text"
+                      value={voiceSampleText}
+                      onChange={(e) => setVoiceSampleText(e.target.value)}
+                      placeholder="Sinab eshitish uchun xohlagan matningizni yozing..."
+                      className="aurora-input py-2.5 text-xs"
+                    />
+                  </div>
+
+                  <div className="lg:col-span-3 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span>Ovoz Tembri (Pitch):</span>
+                      <span className="font-mono text-[#3ee6c4]">{customPitch.toFixed(2)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0.55}
+                      max={1.45}
+                      step={0.02}
+                      value={customPitch}
+                      onChange={(e) => setCustomPitch(Number(e.target.value))}
+                      className="w-full accent-[#3ee6c4] cursor-pointer"
+                    />
+                    <span className="text-[10px] opacity-65 block">
+                      0.75 = Yo&apos;g&apos;onroq erkak · 0.96 = Tabiiy · 1.15 = Ingichkaroq
+                    </span>
+                  </div>
+
+                  <div className="lg:col-span-3 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span>Gapirish Tezligi (Rate):</span>
+                      <span className="font-mono text-[#ffd23f]">{customRate.toFixed(2)}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0.75}
+                      max={1.4}
+                      step={0.02}
+                      value={customRate}
+                      onChange={(e) => setCustomRate(Number(e.target.value))}
+                      className="w-full accent-[#ffd23f] cursor-pointer"
+                    />
+                    <span className="text-[10px] opacity-65 block">
+                      0.90x = Bosiq · 1.03x = Ravon standart · 1.20x = Tezkor
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 1. All Named Multi-Voice Profiles (32 Distinct Voices with their Original Names) */}
+              <div className="aurora-card p-6 space-y-5">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[11px] font-mono font-extrabold text-[#ffd23f] uppercase">
+                      1-QISM · AVVALGI BARCHA KO&apos;P OVOZLI NOMLI OVOZLAR TO&apos;PLAMI ({CMDBEK_VOICE_PRESETS.length} TA HAR XIL OVOZ)
+                    </span>
+                    <h4 className="text-base sm:text-lg font-black mt-0.5">
+                      Barcha Avvalgi Ovozlar (Nomi va O&apos;z Tembri Bilan) — Eshitib Ko&apos;ring va Yagona Ovoz Tanlang
+                    </h4>
+                    <p className="text-xs opacity-75 mt-0.5">
+                      Har bir ovoz (Sardor, Madina, Davron, Nigora, Bekzod, Sevinch, Ahmet, Emel, Dmitry, Irina, Microsoft David, Microsoft Zira, Puck, Fenrir, Kore va boshqalar) o&apos;zining haqiqiy alohida ovozida gapiradi!
+                    </p>
+                  </div>
+
+                  {/* Gender Filter Pills */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {(
+                      [
+                        { id: 'all', label: `Barchasi (${CMDBEK_VOICE_PRESETS.length})` },
+                        {
+                          id: 'male',
+                          label: `👦 O'g'il Bola / Erkak (${
+                            CMDBEK_VOICE_PRESETS.filter((p) => p.gender === 'male').length
+                          })`,
+                        },
+                        {
+                          id: 'female',
+                          label: `👧 Qiz Bola / Ayol (${
+                            CMDBEK_VOICE_PRESETS.filter((p) => p.gender === 'female').length
+                          })`,
+                        },
+                        {
+                          id: 'robot',
+                          label: `🤖 Maxsus / Robot (${
+                            CMDBEK_VOICE_PRESETS.filter((p) => p.gender === 'robot').length
+                          })`,
+                        },
+                      ] as const
+                    ).map((gf) => (
+                      <button
+                        key={gf.id}
+                        type="button"
+                        onClick={() => setPresetGenderFilter(gf.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${
+                          presetGenderFilter === gf.id
+                            ? 'bg-[#ffd23f] text-[#0a0912]'
+                            : 'bg-white/5 hover:bg-white/10'
+                        }`}
+                      >
+                        {gf.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Category Filter Tabs */}
+                <div className="flex items-center gap-2 flex-wrap border-b border-white/10 pb-3">
+                  {(
+                    [
+                      { id: 'all', label: '🌐 Barcha Bo\'limlar (32 ta ovoz)' },
+                      {
+                        id: 'uz_tr',
+                        label: "🇺🇿🇹🇷 O'zbek va Turkiy (Sardor, Madina, Davron, Nigora, Bekzod, Sevinch, Ahmet, Emel...)",
+                      },
+                      {
+                        id: 'ru_cyrl',
+                        label: "🇷🇺 Kirill / Rus-O'zbek (Dmitry, Pavel, Maxim, Irina, Svetlana)",
+                      },
+                      {
+                        id: 'browser_classic',
+                        label: '💻 Microsoft & Klassik (David, Zira, Mark, Daniel, Arthur, Oliver, Ruby)',
+                      },
+                      {
+                        id: 'gemini_special',
+                        label: '🤖 Gemini AI & Qahramonlar (Puck, Fenrir, Charon, Orus, Zephyr, Kore, Rocket, Stitch, C-3PO)',
+                      },
+                    ] as const
+                  ).map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setPresetCategoryFilter(cat.id)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${
+                        presetCategoryFilter === cat.id
+                          ? 'bg-[#3ee6c4] text-[#0a0912] shadow-md'
+                          : 'bg-white/5 hover:bg-white/10 text-white/85'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {CMDBEK_VOICE_PRESETS.filter((preset) => {
+                    if (presetCategoryFilter !== 'all' && preset.category !== presetCategoryFilter) {
+                      return false;
+                    }
+                    if (presetGenderFilter !== 'all' && preset.gender !== presetGenderFilter) {
+                      return false;
+                    }
+                    return true;
+                  }).map((preset) => {
+                    const isSelected =
+                      activeVoiceConfig.id === preset.id ||
+                      activeVoiceConfig.label === preset.label;
+                    const isPreviewing = previewingVoiceId === preset.id;
+
+                    return (
+                      <div
+                        key={preset.id}
+                        className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
+                          isSelected
+                            ? 'border-2 border-[#3ee6c4] bg-[#3ee6c4]/15 shadow-[0_0_25px_rgba(62,230,196,0.2)]'
+                            : 'bg-white/5 border-white/10 hover:border-white/25'
+                        }`}
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="px-2.5 py-0.5 rounded-lg bg-[#ffd23f] text-[#0a0912] font-mono text-xs font-black">
+                                {preset.shortName}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded-lg font-mono text-[10px] font-bold ${
+                                  preset.gender === 'female'
+                                    ? 'bg-[#ff6b86]/25 text-[#ff6b86]'
+                                    : preset.gender === 'robot'
+                                      ? 'bg-purple-500/25 text-purple-300'
+                                      : 'bg-[#3ee6c4]/20 text-[#3ee6c4]'
+                                }`}
+                              >
+                                {preset.gender === 'female'
+                                  ? '👧 Qiz bola / Ayol'
+                                  : preset.gender === 'robot'
+                                    ? '🤖 Maxsus / Robot'
+                                    : "👦 O'g'il bola / Erkak"}
+                              </span>
+                            </div>
+
+                            {isSelected && (
+                              <span className="px-2.5 py-0.5 rounded-full bg-[#3ee6c4] text-[#0a0912] font-mono text-[10px] font-black shrink-0">
+                                ✓ HOZIRGI YAGONA OVOZ
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="font-bold text-xs sm:text-sm text-white">
+                            {preset.label}
+                          </div>
+
+                          {preset.description && (
+                            <p className="text-[11px] opacity-80 leading-relaxed">
+                              {preset.description}
+                            </p>
+                          )}
+
+                          <p className="text-[10px] font-mono opacity-65">
+                            Til: {preset.lang} · Pitch: {preset.edgePitchHz || preset.pitch} · Tezlik:{' '}
+                            {preset.edgeRatePct || `${preset.rate}x`} · Dvigatel:{' '}
+                            {preset.engine === 'edge'
+                              ? `Microsoft Azure Neural (${preset.edgeVoice})`
+                              : preset.engine === 'google'
+                                ? `Google Neural (${preset.googleLang})`
+                                : preset.engine === 'tiktok'
+                                  ? `Neural Studio (${preset.tiktokVoice})`
+                                  : preset.engine === 'gemini'
+                                    ? `Gemini (${preset.geminiVoiceName})`
+                                    : `Brauzer (${preset.voiceKeyword || preset.shortName})`}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isPreviewing) {
+                                stopAllBoySpeech();
+                                setPreviewingVoiceId(null);
+                                return;
+                              }
+                              setPreviewingVoiceId(preset.id);
+                              previewVoiceConfig(voiceSampleText, preset, {
+                                onStart: () => setPreviewingVoiceId(preset.id),
+                                onEnd: () => setPreviewingVoiceId(null),
+                              });
+                            }}
+                            className="duo-btn duo-btn-surface flex-1 py-2 text-xs cursor-pointer"
+                          >
+                            <Volume2 className="w-3.5 h-3.5 text-[#3ee6c4]" />
+                            <span>
+                              {isPreviewing
+                                ? "⏹️ To'xtatish"
+                                : `🔊 "${preset.shortName}"ni eshitish`}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const saved = saveGlobalCmdBekVoiceConfig(preset);
+                              setActiveVoiceConfig(saved);
+                              setCustomPitch(saved.pitch);
+                              setCustomRate(saved.rate);
+                              recordAdminAction(
+                                `🔊 CMDbek yagona ovozi barcha uchun "${saved.shortName} — ${saved.label}" ga o'zgartirildi!`
+                              );
+                            }}
+                            className={`duo-btn flex-1 py-2 text-xs cursor-pointer ${
+                              isSelected ? 'duo-btn-mint' : 'duo-btn-gold'
+                            }`}
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>{isSelected ? "✓ O'rnatilgan" : 'Hamma Uchun Tanlash'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. All Installed Browser / System Voices */}
+              <div className="aurora-card p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[11px] font-mono font-extrabold text-[#3ee6c4] uppercase">
+                      2-QISM · TIZIM VA BRAUZERDAGI BARCHA OVOZLAR ({browserVoicesList.length} TA TOPILDI)
+                    </span>
+                    <h4 className="text-base sm:text-lg font-black mt-0.5">
+                      Xohlagan Ovozni Eshitib Ko&apos;rib, Yagona Ovoz Sifatida Tanlang
+                    </h4>
+                    <p className="text-xs opacity-75">
+                      Tepadagi Tembr ({customPitch.toFixed(2)}) va Tezlik ({customRate.toFixed(2)}x) bilan istalgan ovozni eshitib ko&apos;ring va bir klikda barcha uchun saqlang.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {(
+                      [
+                        { id: 'all', label: `Barchasi (${browserVoicesList.length})` },
+                        { id: 'uz_tr', label: "O'zbek / Turk" },
+                        { id: 'ru', label: 'Rus' },
+                        { id: 'en', label: 'Ingliz' },
+                      ] as const
+                    ).map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setVoiceLangFilter(f.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${
+                          voiceLangFilter === f.id
+                            ? 'bg-[#3ee6c4] text-[#0a0912]'
+                            : 'bg-white/5 hover:bg-white/10'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {browserVoicesList.length === 0 ? (
+                  <div className="p-6 rounded-2xl bg-white/5 text-center space-y-2 text-xs opacity-80">
+                    <p>Brauzer ovozlar ro&apos;yxati yuklanmoqda yoki tizim ovozlari topilmadi.</p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const list = await getAllBrowserSpeechVoices();
+                        setBrowserVoicesList(list);
+                      }}
+                      className="duo-btn duo-btn-mint py-2 px-4 text-xs mx-auto"
+                    >
+                      Ovozlarni Qayta Yuklash
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[520px] overflow-y-auto pr-1">
+                    {browserVoicesList
+                      .filter((v) => {
+                        const l = v.lang.toLowerCase();
+                        if (voiceLangFilter === 'uz_tr') return l.includes('uz') || l.includes('tr');
+                        if (voiceLangFilter === 'ru') return l.includes('ru');
+                        if (voiceLangFilter === 'en') return l.includes('en');
+                        return true;
+                      })
+                      .map((v, idx) => {
+                        const voiceKey = `${v.voiceURI}-${idx}`;
+                        const isCurrent =
+                          activeVoiceConfig.voiceURI === v.voiceURI ||
+                          activeVoiceConfig.voiceName === v.name;
+                        const isPlayingThis = previewingVoiceId === voiceKey;
+
+                        const candidateConfig: CmdBekVoiceConfig = {
+                          id: `browser-voice-${idx}`,
+                          shortName: v.name,
+                          label: `${v.name} (${v.lang})`,
+                          voiceURI: v.voiceURI,
+                          voiceName: v.name,
+                          lang: v.lang || 'uz-UZ',
+                          pitch: customPitch,
+                          rate: customRate,
+                          engine: 'browser',
+                          geminiVoiceName: 'Puck',
+                          preferBrowserVoice: true,
+                          updatedAt: new Date().toLocaleString(),
+                        };
+
+                        return (
+                          <div
+                            key={voiceKey}
+                            className={`p-3.5 rounded-2xl border flex flex-col justify-between gap-3 transition-all ${
+                              isCurrent
+                                ? 'border-2 border-[#ffd23f] bg-[#ffd23f]/15'
+                                : 'bg-white/5 border-white/10 hover:border-white/25'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <h5 className="font-bold text-xs sm:text-sm truncate text-white">
+                                  {v.name}
+                                </h5>
+                                <span className="text-[11px] font-mono text-[#3ee6c4] block">
+                                  Til: {v.lang} · Pitch: {customPitch.toFixed(2)} · Tezlik: {customRate.toFixed(2)}x
+                                </span>
+                              </div>
+                              {isCurrent && (
+                                <span className="px-2 py-0.5 rounded-full bg-[#ffd23f] text-[#0a0912] font-mono text-[10px] font-black shrink-0">
+                                  ✓ TANLANGAN
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isPlayingThis) {
+                                    stopAllBoySpeech();
+                                    setPreviewingVoiceId(null);
+                                    return;
+                                  }
+                                  setPreviewingVoiceId(voiceKey);
+                                  previewVoiceConfig(voiceSampleText, candidateConfig, {
+                                    onStart: () => setPreviewingVoiceId(voiceKey),
+                                    onEnd: () => setPreviewingVoiceId(null),
+                                  });
+                                }}
+                                className="duo-btn duo-btn-surface flex-1 py-2 text-xs cursor-pointer"
+                              >
+                                <Volume2 className="w-3.5 h-3.5 text-[#3ee6c4]" />
+                                <span>{isPlayingThis ? "⏹️ To'xtatish" : "🔊 Eshitib ko'rish"}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const saved = saveGlobalCmdBekVoiceConfig(candidateConfig);
+                                  setActiveVoiceConfig(saved);
+                                  recordAdminAction(
+                                    `🔊 CMDbek yagona ovozi barcha uchun "${v.name} (${v.lang})" ga o'rnatildi!`
+                                  );
+                                }}
+                                className={`duo-btn flex-1 py-2 text-xs cursor-pointer ${
+                                  isCurrent ? 'duo-btn-gold' : 'duo-btn-mint'
+                                }`}
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>{isCurrent ? "O'rnatilgan" : 'Shu Ovozni Tanlash'}</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -22,6 +22,7 @@ export const SHARED_KEYS = [
   'devmaster_feedback_reports_v1',
   'devmaster_sub_admins_v1',
   'devmaster_ai_memories_v1',
+  'devmaster_cmdbek_voice_config_v1',
 ];
 
 export interface Row {

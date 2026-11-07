@@ -47,6 +47,7 @@ const STORAGE_KEYS = {
   FEEDBACK_REPORTS: 'devmaster_feedback_reports_v1',
   SUB_ADMINS: 'devmaster_sub_admins_v1',
   AI_MEMORIES: 'devmaster_ai_memories_v1',
+  CMDBEK_VOICE_CONFIG: 'devmaster_cmdbek_voice_config_v1',
   AUTH_USER: 'devmaster_current_auth_user_v2',
 };
 
@@ -66,6 +67,7 @@ export const SHARED_STORAGE_KEYS = [
   STORAGE_KEYS.FEEDBACK_REPORTS,
   STORAGE_KEYS.SUB_ADMINS,
   STORAGE_KEYS.AI_MEMORIES,
+  STORAGE_KEYS.CMDBEK_VOICE_CONFIG,
 ];
 
 /** Ilova ochilganda bir marta chaqiriladi: yagona markaziy bazadan ma'lumotni yuklaydi. */

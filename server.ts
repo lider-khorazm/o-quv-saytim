@@ -8,6 +8,7 @@ import { db } from './src/db/index.ts';
 import { staffMembers, staffMessages, claimedGifts } from './src/db/schema.ts';
 import { desc, eq } from 'drizzle-orm';
 import { store, initStore, SHARED_KEYS } from './serverStore.ts';
+import { synthesizeEdgeNeuralSpeech } from './edgeNeuralTts.ts';
 
 dotenv.config();
 
@@ -339,85 +340,358 @@ app.post('/api/gemini/chat', async (req, res) => {
   }
 });
 
-// AI Text-to-Speech (Ovozli gapirish): DOIM BIR XIL O'ZBEK O'G'IL BOLA / ERKAK OVOZI (Fenrir)
+// Helper: Convert Uzbek Latin text to Turkish-compatible phonetics so Turkish Neural TTS reads Uzbek fluently
+function toTurkishPhoneticUzbek(text: string): string {
+  return String(text || '')
+    .replace(/DevMaster/gi, 'Dev Master')
+    .replace(/o['‘’ʻʼ`]/gi, (m) => (m[0] === 'O' ? 'O' : 'o'))
+    .replace(/g['‘’ʻʼ`]/gi, (m) => (m[0] === 'G' ? 'Ğ' : 'ğ'))
+    .replace(/sh/g, 'ş')
+    .replace(/Sh/g, 'Ş')
+    .replace(/SH/g, 'Ş')
+    .replace(/ch/g, 'ç')
+    .replace(/Ch/g, 'Ç')
+    .replace(/CH/g, 'Ç')
+    .replace(/x/g, 'h')
+    .replace(/X/g, 'H')
+    .replace(/q/g, 'k')
+    .replace(/Q/g, 'K')
+    .replace(/j/g, 'c')
+    .replace(/J/g, 'C')
+    .replace(/['‘’ʻʼ`]/g, '');
+}
+
+// Helper: Convert Uzbek Latin text to Cyrillic so Russian Neural TTS reads Uzbek words fluently
+function toCyrillicUzbek(text: string): string {
+  let s = String(text || '')
+    .replace(/CMDbek/gi, 'СМДбек')
+    .replace(/DevMaster/gi, 'Дев Мастер')
+    .replace(/AI/gi, 'Ай-Ай')
+    .replace(/XP/gi, 'икс-пи');
+
+  const multiMap: [RegExp, string][] = [
+    [/o['‘’ʻʼ`]/g, 'у'],
+    [/O['‘’ʻʼ`]/g, 'У'],
+    [/g['‘’ʻʼ`]/g, 'г'],
+    [/G['‘’ʻʼ`]/g, 'Г'],
+    [/sh/g, 'ш'],
+    [/Sh/g, 'Ш'],
+    [/SH/g, 'Ш'],
+    [/ch/g, 'ч'],
+    [/Ch/g, 'Ч'],
+    [/CH/g, 'Ч'],
+    [/yo/g, 'ё'],
+    [/Yo/g, 'Ё'],
+    [/YO/g, 'Ё'],
+    [/yu/g, 'ю'],
+    [/Yu/g, 'Ю'],
+    [/YU/g, 'Ю'],
+    [/ya/g, 'я'],
+    [/Ya/g, 'Я'],
+    [/YA/g, 'Я'],
+    [/ye/g, 'е'],
+    [/Ye/g, 'Е'],
+    [/ts/g, 'ц'],
+    [/['‘’ʻʼ`]/g, 'ъ'],
+  ];
+  for (const [rgx, rep] of multiMap) {
+    s = s.replace(rgx, rep);
+  }
+
+  const charMap: Record<string, string> = {
+    a: 'а', A: 'А',
+    b: 'б', B: 'Б',
+    d: 'д', D: 'Д',
+    e: 'э', E: 'Э',
+    f: 'ф', F: 'Ф',
+    g: 'г', G: 'Г',
+    h: 'х', H: 'Х',
+    i: 'и', I: 'И',
+    j: 'ж', J: 'Ж',
+    k: 'к', K: 'К',
+    l: 'л', L: 'Л',
+    m: 'м', M: 'М',
+    n: 'н', N: 'Н',
+    o: 'о', O: 'О',
+    p: 'п', P: 'П',
+    q: 'к', Q: 'К',
+    r: 'р', R: 'Р',
+    s: 'с', S: 'С',
+    t: 'т', T: 'Т',
+    u: 'у', U: 'У',
+    v: 'в', V: 'В',
+    x: 'х', X: 'Х',
+    y: 'й', Y: 'Й',
+    z: 'з', Z: 'З',
+  };
+
+  return s
+    .split('')
+    .map((ch) => charMap[ch] ?? ch)
+    .join('');
+}
+
+// Helper: Clean Uzbek Latin for international neural voices (TikTok / Indonesian / German / English neural)
+function toCleanLatinPhoneticUzbek(text: string): string {
+  return String(text || '')
+    .replace(/o['‘’ʻʼ`]/gi, (m) => (m[0] === 'O' ? 'O' : 'o'))
+    .replace(/g['‘’ʻʼ`]/gi, (m) => (m[0] === 'G' ? 'G' : 'g'))
+    .replace(/x/g, 'kh')
+    .replace(/X/g, 'Kh')
+    .replace(/q/g, 'k')
+    .replace(/Q/g, 'K')
+    .replace(/['‘’ʻʼ`]/g, '');
+}
+
+// Split text into safe chunks (<= 180 chars) for neural TTS endpoints
+function splitSpeechChunks(text: string, maxLen = 180): string[] {
+  const sentences = text
+    .replace(/([.!?]+)\s+/g, '$1|')
+    .split('|')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const chunks: string[] = [];
+  let current = '';
+
+  for (const sent of sentences) {
+    if ((current + ' ' + sent).trim().length <= maxLen) {
+      current = (current + ' ' + sent).trim();
+    } else {
+      if (current) chunks.push(current);
+      if (sent.length <= maxLen) {
+        current = sent;
+      } else {
+        const words = sent.split(/\s+/);
+        let temp = '';
+        for (const w of words) {
+          if ((temp + ' ' + w).trim().length <= maxLen) {
+            temp = (temp + ' ' + w).trim();
+          } else {
+            if (temp) chunks.push(temp);
+            temp = w.slice(0, maxLen);
+          }
+        }
+        current = temp;
+      }
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks.slice(0, 4);
+}
+
+// AI Text-to-Speech (Haqiqiy O'zbek Neyron Ovozlari: uz-UZ-SardorNeural, uz-UZ-MadinaNeural va 30+ Studiya Ovozlar!)
 app.post('/api/ai-tts', async (req, res) => {
   try {
-    const { text } = req.body;
+    const {
+      text,
+      voiceName,
+      engine,
+      edgeVoice,
+      edgePitchHz,
+      edgeRatePct,
+      tiktokVoice,
+      googleLang,
+    } = req.body || {};
     if (!text || !String(text).trim()) {
       return res.status(400).json({ error: 'Matn kiritilmadi' });
     }
 
-    // Strip code blocks and markdown symbols so the Uzbek boy voice reads cleanly and fluently
     const cleanSpeechText = String(text)
       .replace(/```[\s\S]*?```/g, ' kod namunasiga ekranda qarang. ')
-      .replace(/[`#*~_>]/g, '')
-      .slice(0, 750)
+      .replace(/[`#*~_>]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .slice(0, 600)
       .trim();
 
-    const gemini = getGeminiClient();
-    if (!gemini) {
-      return res.json({ audioBase64: null, fallbackWebSpeech: true, voiceGender: 'male' });
+    // 0. PRIMARY ENGINE: Microsoft Azure / Edge Native Neural Voices (uz-UZ-SardorNeural, uz-UZ-MadinaNeural, etc.)
+    if (engine === 'edge' || edgeVoice || !engine) {
+      const targetEdgeVoice = edgeVoice || 'uz-UZ-SardorNeural';
+      let edgeText = cleanSpeechText;
+
+      if (targetEdgeVoice.startsWith('tr-TR')) {
+        edgeText = toTurkishPhoneticUzbek(cleanSpeechText);
+      } else if (
+        targetEdgeVoice.startsWith('ru-RU') ||
+        targetEdgeVoice.startsWith('kk-KZ') ||
+        targetEdgeVoice.startsWith('ky-KG')
+      ) {
+        edgeText = toCyrillicUzbek(cleanSpeechText);
+      }
+
+      try {
+        const mp3Buf = await synthesizeEdgeNeuralSpeech({
+          text: edgeText,
+          voice: targetEdgeVoice,
+          pitchHz: edgePitchHz || '+0Hz',
+          ratePct: edgeRatePct || '+4%',
+        });
+        if (mp3Buf && mp3Buf.length > 200) {
+          return res.json({
+            audioBase64: mp3Buf.toString('base64'),
+            mimeType: 'audio/mpeg',
+            engineUsed: `edge:${targetEdgeVoice}`,
+          });
+        }
+      } catch (edgeErr) {
+        console.warn('Edge Neural TTS notice, trying next engine:', edgeErr);
+      }
     }
 
-    const response = await gemini.models.generateContent({
-      model: 'gemini-3.8-flash-lite-tts',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: cleanSpeechText,
-              speechMetadata: {
-                style:
-                  'Clear, energetic, natural young male Uzbek speaker with a warm masculine voice',
+    // 1. If Gemini TTS is explicitly requested AND GEMINI_API_KEY is available
+    if (engine === 'gemini') {
+      const gemini = getGeminiClient();
+      if (gemini) {
+        try {
+          const allowedVoices = ['Puck', 'Fenrir', 'Charon', 'Orus', 'Zephyr', 'Kore'];
+          const selectedGeminiVoice = allowedVoices.includes(voiceName) ? voiceName : 'Puck';
+          const response = await gemini.models.generateContent({
+            model: 'gemini-3.8-flash-lite-tts',
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    text: cleanSpeechText,
+                    speechMetadata: {
+                      style: 'Clear, natural, fluent Uzbek speaker',
+                    },
+                  },
+                ],
+              },
+            ],
+            config: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: { voiceName: selectedGeminiVoice },
+                },
               },
             },
-          ],
-        },
-      ],
-      config: {
-        responseModalities: ['AUDIO'],
-        speechConfig: {
-          voiceConfig: {
-            // Birinchi yaratilgandagi asl ravon o'g'il bola ovozi ('Puck')
-            prebuiltVoiceConfig: { voiceName: 'Puck' },
-          },
-        },
-      },
-    });
+          });
 
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (base64Audio) {
-      const pcmBuf = Buffer.from(base64Audio, 'base64');
-      // Unary default is already a complete WAV file (RIFF header). Only wrap if headerless PCM:
-      if (pcmBuf.length > 4 && pcmBuf.toString('ascii', 0, 4) !== 'RIFF') {
-        const wavHeader = Buffer.alloc(44);
-        wavHeader.write('RIFF', 0);
-        wavHeader.writeUInt32LE(36 + pcmBuf.length, 4);
-        wavHeader.write('WAVE', 8);
-        wavHeader.write('fmt ', 12);
-        wavHeader.writeUInt32LE(16, 16);
-        wavHeader.writeUInt16LE(1, 20);
-        wavHeader.writeUInt16LE(1, 22);
-        wavHeader.writeUInt32LE(24000, 24);
-        wavHeader.writeUInt32LE(48000, 28);
-        wavHeader.writeUInt16LE(2, 32);
-        wavHeader.writeUInt16LE(16, 34);
-        wavHeader.write('data', 36);
-        wavHeader.writeUInt32LE(pcmBuf.length, 40);
-        const wavBuf = Buffer.concat([wavHeader, pcmBuf]);
+          const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+          if (base64Audio) {
+            const pcmBuf = Buffer.from(base64Audio, 'base64');
+            if (pcmBuf.length > 4 && pcmBuf.toString('ascii', 0, 4) !== 'RIFF') {
+              const wavHeader = Buffer.alloc(44);
+              wavHeader.write('RIFF', 0);
+              wavHeader.writeUInt32LE(36 + pcmBuf.length, 4);
+              wavHeader.write('WAVE', 8);
+              wavHeader.write('fmt ', 12);
+              wavHeader.writeUInt32LE(16, 16);
+              wavHeader.writeUInt16LE(1, 20);
+              wavHeader.writeUInt16LE(1, 22);
+              wavHeader.writeUInt32LE(24000, 24);
+              wavHeader.writeUInt32LE(48000, 28);
+              wavHeader.writeUInt16LE(2, 32);
+              wavHeader.writeUInt16LE(16, 34);
+              wavHeader.write('data', 36);
+              wavHeader.writeUInt32LE(pcmBuf.length, 40);
+              const wavBuf = Buffer.concat([wavHeader, pcmBuf]);
+              return res.json({
+                audioBase64: wavBuf.toString('base64'),
+                mimeType: 'audio/wav',
+              });
+            }
+            return res.json({ audioBase64: base64Audio, mimeType: 'audio/wav' });
+          }
+        } catch (gemErr) {
+          console.warn('Gemini TTS fallback to neural TTS:', gemErr);
+        }
+      }
+    }
+
+    // 2. TikTok Neural Multi-Voice TTS (20+ distinct male, boy, female, girl, and character voices!)
+    if (engine === 'tiktok' || tiktokVoice) {
+      const targetVoice = tiktokVoice || 'en_us_006';
+      const phoneticText =
+        targetVoice.startsWith('tr')
+          ? toTurkishPhoneticUzbek(cleanSpeechText)
+          : toCleanLatinPhoneticUzbek(cleanSpeechText);
+
+      const chunks = splitSpeechChunks(phoneticText, 175);
+      const audioBuffers: Buffer[] = [];
+
+      for (const chunk of chunks) {
+        try {
+          const ttRes = await fetch('https://tiktok-tts.weilnet.workers.dev/api/generation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: chunk, voice: targetVoice }),
+          });
+          if (ttRes.ok) {
+            const ttJson: any = await ttRes.json();
+            if (ttJson?.data) {
+              audioBuffers.push(Buffer.from(ttJson.data, 'base64'));
+            }
+          }
+        } catch (ttErr) {
+          console.warn('TikTok TTS chunk error:', ttErr);
+        }
+      }
+
+      if (audioBuffers.length > 0) {
+        const combined = Buffer.concat(audioBuffers);
         return res.json({
-          audioBase64: wavBuf.toString('base64'),
-          mimeType: 'audio/wav',
-          voiceGender: 'male',
+          audioBase64: combined.toString('base64'),
+          mimeType: 'audio/mpeg',
+          engineUsed: `tiktok:${targetVoice}`,
         });
       }
-      return res.json({ audioBase64: base64Audio, mimeType: 'audio/wav', voiceGender: 'male' });
     }
-    return res.json({ audioBase64: null, fallbackWebSpeech: true, voiceGender: 'male' });
+
+    // 3. Google Neural Translate TTS (supports tr, ru, id, de, fr, ar, en-uk, en-au, en)
+    if (engine === 'google' || googleLang) {
+      const tl = googleLang || 'tr';
+      let preparedText = cleanSpeechText;
+      if (tl === 'tr') {
+        preparedText = toTurkishPhoneticUzbek(cleanSpeechText);
+      } else if (tl === 'ru') {
+        preparedText = toCyrillicUzbek(cleanSpeechText);
+      } else {
+        preparedText = toCleanLatinPhoneticUzbek(cleanSpeechText);
+      }
+
+      const chunks = splitSpeechChunks(preparedText, 170);
+      const audioBuffers: Buffer[] = [];
+
+      for (const chunk of chunks) {
+        try {
+          const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${encodeURIComponent(
+            tl
+          )}&q=${encodeURIComponent(chunk)}`;
+          const gRes = await fetch(url, {
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
+            },
+          });
+          if (gRes.ok) {
+            const arrBuf = await gRes.arrayBuffer();
+            if (arrBuf.byteLength > 200) {
+              audioBuffers.push(Buffer.from(arrBuf));
+            }
+          }
+        } catch (gErr) {
+          console.warn('Google TTS chunk error:', gErr);
+        }
+      }
+
+      if (audioBuffers.length > 0) {
+        const combined = Buffer.concat(audioBuffers);
+        return res.json({
+          audioBase64: combined.toString('base64'),
+          mimeType: 'audio/mpeg',
+          engineUsed: `google:${tl}`,
+        });
+      }
+    }
+
+    return res.json({ audioBase64: null, fallbackWebSpeech: true });
   } catch (err) {
-    console.warn('Gemini TTS fallback to Web Speech:', err);
-    return res.json({ audioBase64: null, fallbackWebSpeech: true, voiceGender: 'male' });
+    console.warn('TTS route fallback to Web Speech:', err);
+    return res.json({ audioBase64: null, fallbackWebSpeech: true });
   }
 });
 

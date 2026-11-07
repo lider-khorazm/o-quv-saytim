@@ -55,13 +55,25 @@ export function CmdBekAssistant() {
 
   useEffect(() => {
     const handleOpenEvent = () => {
+      stopAllBoySpeech();
       setOpen(true);
       setBubble(false);
       setAngryMessage(null);
     };
+    const handleResize = () => {
+      setPos((prev) => {
+        if (!prev) return null;
+        return {
+          x: Math.max(10, Math.min(window.innerWidth - 114, prev.x)),
+          y: Math.max(10, Math.min(window.innerHeight - 145, prev.y)),
+        };
+      });
+    };
     window.addEventListener('open-cmdbek-ai', handleOpenEvent);
+    window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('open-cmdbek-ai', handleOpenEvent);
+      window.removeEventListener('resize', handleResize);
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
