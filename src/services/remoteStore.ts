@@ -164,9 +164,12 @@ export function setShared(key: string, value: unknown): void {
 /**
  * Markaziy bazani to'liq 0 qilish (barcha o'quvchilar, ustozlar, testlar va chatlarni tozalash)
  */
-export async function resetCentralDatabase(): Promise<boolean> {
+export async function resetCentralDatabase(adminSecret?: string): Promise<boolean> {
   try {
-    const res = await fetchJson('/api/store/reset', { method: 'POST' });
+    const res = await fetchJson('/api/store/reset', {
+      method: 'POST',
+      headers: { 'x-admin-secret': adminSecret || '' },
+    });
     if (!res.ok) return false;
     const data: {
       ok: boolean;

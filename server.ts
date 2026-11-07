@@ -361,25 +361,29 @@ function toTurkishPhoneticUzbek(text: string): string {
     .replace(/['‘’ʻʼ`]/g, '');
 }
 
-// Helper: Convert Uzbek Latin text to Cyrillic so Russian Neural TTS reads Uzbek words fluently
+// Helper: Convert Uzbek Latin text to Cyrillic so Neural TTS reads Uzbek o' (ў) and g' (ғ) accurately
 function toCyrillicUzbek(text: string): string {
   let s = String(text || '')
-    .replace(/CMDbek/gi, 'СМДбек')
+    .replace(/CMDbek/gi, 'Си Эм Ди бек')
+    .replace(/Si Em Di bek/gi, 'Си Эм Ди бек')
     .replace(/DevMaster/gi, 'Дев Мастер')
     .replace(/AI/gi, 'Ай-Ай')
     .replace(/XP/gi, 'икс-пи');
 
   const multiMap: [RegExp, string][] = [
-    [/o['‘’ʻʼ`]/g, 'у'],
-    [/O['‘’ʻʼ`]/g, 'У'],
-    [/g['‘’ʻʼ`]/g, 'г'],
-    [/G['‘’ʻʼ`]/g, 'Г'],
+    [/o['‘’ʻʼ`´]/g, 'ў'],
+    [/O['‘’ʻʼ`´]/g, 'Ў'],
+    [/g['‘’ʻʼ`´]/g, 'ғ'],
+    [/G['‘’ʻʼ`´]/g, 'Ғ'],
     [/sh/g, 'ш'],
     [/Sh/g, 'Ш'],
     [/SH/g, 'Ш'],
     [/ch/g, 'ч'],
     [/Ch/g, 'Ч'],
     [/CH/g, 'Ч'],
+    [/ng/g, 'нг'],
+    [/Ng/g, 'Нг'],
+    [/NG/g, 'НГ'],
     [/yo/g, 'ё'],
     [/Yo/g, 'Ё'],
     [/YO/g, 'Ё'],
@@ -391,8 +395,13 @@ function toCyrillicUzbek(text: string): string {
     [/YA/g, 'Я'],
     [/ye/g, 'е'],
     [/Ye/g, 'Е'],
+    [/YE/g, 'Е'],
     [/ts/g, 'ц'],
-    [/['‘’ʻʼ`]/g, 'ъ'],
+    [/Ts/g, 'Ц'],
+    [/TS/g, 'Ц'],
+    [/(^|[^a-zA-Zа-яА-ЯёЁўЎғҒқҚҳҲ])e/g, '$1э'],
+    [/(^|[^a-zA-Zа-яА-ЯёЁўЎғҒқҚҳҲ])E/g, '$1Э'],
+    [/['‘’ʻʼ`´]/g, 'ъ'],
   ];
   for (const [rgx, rep] of multiMap) {
     s = s.replace(rgx, rep);
@@ -402,10 +411,10 @@ function toCyrillicUzbek(text: string): string {
     a: 'а', A: 'А',
     b: 'б', B: 'Б',
     d: 'д', D: 'Д',
-    e: 'э', E: 'Э',
+    e: 'е', E: 'Е',
     f: 'ф', F: 'Ф',
     g: 'г', G: 'Г',
-    h: 'х', H: 'Х',
+    h: 'ҳ', H: 'Ҳ',
     i: 'и', I: 'И',
     j: 'ж', J: 'Ж',
     k: 'к', K: 'К',
@@ -414,7 +423,7 @@ function toCyrillicUzbek(text: string): string {
     n: 'н', N: 'Н',
     o: 'о', O: 'О',
     p: 'п', P: 'П',
-    q: 'к', Q: 'К',
+    q: 'қ', Q: 'Қ',
     r: 'р', R: 'Р',
     s: 'с', S: 'С',
     t: 'т', T: 'Т',
@@ -509,7 +518,50 @@ app.post('/api/ai-tts', async (req, res) => {
       const targetEdgeVoice = edgeVoice || 'uz-UZ-SardorNeural';
       let edgeText = cleanSpeechText;
 
-      if (targetEdgeVoice.startsWith('tr-TR')) {
+      if (targetEdgeVoice.startsWith('uz-UZ') || targetEdgeVoice.startsWith('az-AZ') || targetEdgeVoice.startsWith('en-')) {
+        // Ensure uz-UZ-SardorNeural / uz-UZ-MadinaNeural receives Latin Uzbek with U+02BB (oʻ and gʻ)
+        const cyrToLatMap: [RegExp, string][] = [
+          [/ў/g, 'oʻ'], [/Ў/g, 'Oʻ'],
+          [/ғ/g, 'gʻ'], [/Ғ/g, 'Gʻ'],
+          [/ш/g, 'sh'], [/Ш/g, 'Sh'],
+          [/ч/g, 'ch'], [/Ч/g, 'Ch'],
+          [/нг/g, 'ng'], [/Нг/g, 'Ng'], [/НГ/g, 'NG'],
+          [/ё/g, 'yo'], [/Ё/g, 'Yo'],
+          [/ю/g, 'yu'], [/Ю/g, 'Yu'],
+          [/я/g, 'ya'], [/Я/g, 'Ya'],
+          [/ц/g, 'ts'], [/Ц/g, 'Ts'],
+          [/қ/g, 'q'], [/Қ/g, 'Q'],
+          [/ҳ/g, 'h'], [/Ҳ/g, 'H'],
+          [/х/g, 'x'], [/Х/g, 'X'],
+          [/ж/g, 'j'], [/Ж/g, 'J'],
+          [/й/g, 'y'], [/Й/g, 'Y'],
+          [/а/g, 'a'], [/А/g, 'A'],
+          [/б/g, 'b'], [/Б/g, 'B'],
+          [/в/g, 'v'], [/В/g, 'V'],
+          [/г/g, 'g'], [/Г/g, 'G'],
+          [/д/g, 'd'], [/Д/g, 'D'],
+          [/е/g, 'e'], [/Е/g, 'E'],
+          [/э/g, 'e'], [/Э/g, 'E'],
+          [/з/g, 'z'], [/З/g, 'Z'],
+          [/и/g, 'i'], [/И/g, 'I'],
+          [/к/g, 'k'], [/К/g, 'K'],
+          [/л/g, 'l'], [/Л/g, 'L'],
+          [/м/g, 'm'], [/М/g, 'M'],
+          [/н/g, 'n'], [/Н/g, 'N'],
+          [/о/g, 'o'], [/О/g, 'O'],
+          [/п/g, 'p'], [/П/g, 'P'],
+          [/р/g, 'r'], [/Р/g, 'R'],
+          [/с/g, 's'], [/С/g, 'S'],
+          [/т/g, 't'], [/Т/g, 'T'],
+          [/у/g, 'u'], [/У/g, 'U'],
+          [/ф/g, 'f'], [/Ф/g, 'F'],
+          [/ъ/g, 'ʼ'], [/Ъ/g, 'ʼ'],
+        ];
+        for (const [rgx, rep] of cyrToLatMap) {
+          edgeText = edgeText.replace(rgx, rep);
+        }
+        edgeText = edgeText.replace(/([oOgG])['‘’`ʼ´ʻ]/g, '$1ʻ');
+      } else if (targetEdgeVoice.startsWith('tr-TR')) {
         edgeText = toTurkishPhoneticUzbek(cleanSpeechText);
       } else if (
         targetEdgeVoice.startsWith('ru-RU') ||
@@ -734,7 +786,10 @@ app.put('/api/store/:key', async (req, res) => {
   }
 });
 
-app.post('/api/store/reset', async (_req, res) => {
+app.post('/api/store/reset', async (req, res) => {
+  if (!process.env.ADMIN_SECRET || req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) {
+    return res.status(403).json({ error: "Ruxsat yo'q" });
+  }
   try {
     const keys = await store.resetAll();
     res.set('Cache-Control', 'no-store');

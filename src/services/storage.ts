@@ -76,8 +76,8 @@ export async function initRemoteStorage(): Promise<void> {
 }
 
 /** Markaziy bazani 0 qilish (barcha qurilmalarda bir vaqtda tozalanadi) */
-export async function resetEntireCentralDatabase(): Promise<boolean> {
-  return resetCentralDatabase();
+export async function resetEntireCentralDatabase(adminSecret?: string): Promise<boolean> {
+  return resetCentralDatabase(adminSecret);
 }
 
 function hasStored(key: string): boolean {

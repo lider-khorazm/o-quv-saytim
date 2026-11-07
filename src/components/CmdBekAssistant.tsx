@@ -5,6 +5,7 @@ import { AiMentorModal } from './AiMentorModal';
 import { speakUzbekBoyVoice, stopAllBoySpeech } from '../services/ttsService';
 
 const ANGRY_DRAG_LINES = [
+  "Voy bo', meni ko'tarib yuravermang, ichimdagi kodlarim to'kiladi!",
   "Hoy! Nega meni ko'tarib boshqa joyga uloqtirdingiz?! Do'ppim tushib ketay dediyu!",
   "Voy-bo'! Men Windows papkasi emasman-ku, buncha sudraysiz?! Boshim aylanib ketdi!",
   "Hoy! Sekinroq qo'ying, ichimdagi kodlarim to'kilib ketadi hozir!",

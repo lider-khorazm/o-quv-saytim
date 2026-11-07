@@ -1,16 +1,114 @@
 // Markaziy Ovoz Boshqaruvi: Haqiqiy O'zbek Neyron Ovozlari (uz-UZ-SardorNeural, uz-UZ-MadinaNeural va 30+ Studiya Ovozlar)
 import { getShared, setShared, hasShared } from './remoteStore';
 
+export const VOICE = "uz-UZ-SardorNeural";
+export const USE_CYRILLIC = true;
+
 const PRONUNCIATION: [RegExp, string][] = [
   [/CMDbek/gi, "Si Em Di bek"],
 ];
+
+export function cleanForSpeech(rawText: string): string {
+  if (!rawText) return '';
+
+  return String(rawText)
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/[`#*~_>|\\/<>\[\]{}()]/g, ' ')
+    .replace(/\bEy!\s*/gi, 'Hoy, ')
+    .replace(/\bEy\s+/gi, 'Hoy ')
+    .replace(/[^\p{L}\p{N}\s.,!?'"‘’ʻʼ`´-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 580);
+}
+
+export function fixUzbekApostrophe(text: string): string {
+  return String(text || '').replace(/([oOgG])['‘’`ʼ´ʻ]/g, '$1ʻ');
+}
+
+export function toLatinToCyrillic(text: string): string {
+  let s = String(text || '')
+    .replace(/CMDbek/gi, 'Си Эм Ди бек')
+    .replace(/Si Em Di bek/gi, 'Си Эм Ди бек');
+
+  const multiMap: [RegExp, string][] = [
+    [/o['‘’ʻʼ`´]/g, 'ў'],
+    [/O['‘’ʻʼ`´]/g, 'Ў'],
+    [/g['‘’ʻʼ`´]/g, 'ғ'],
+    [/G['‘’ʻʼ`´]/g, 'Ғ'],
+    [/sh/g, 'ш'],
+    [/Sh/g, 'Ш'],
+    [/SH/g, 'Ш'],
+    [/ch/g, 'ч'],
+    [/Ch/g, 'Ч'],
+    [/CH/g, 'Ч'],
+    [/ng/g, 'нг'],
+    [/Ng/g, 'Нг'],
+    [/NG/g, 'НГ'],
+    [/ts/g, 'ц'],
+    [/Ts/g, 'Ц'],
+    [/TS/g, 'Ц'],
+    [/ya/g, 'я'],
+    [/Ya/g, 'Я'],
+    [/YA/g, 'Я'],
+    [/yu/g, 'ю'],
+    [/Yu/g, 'Ю'],
+    [/YU/g, 'Ю'],
+    [/yo/g, 'ё'],
+    [/Yo/g, 'Ё'],
+    [/YO/g, 'Ё'],
+    [/ye/g, 'е'],
+    [/Ye/g, 'Е'],
+    [/YE/g, 'Е'],
+    [/(^|[^a-zA-Zа-яА-ЯёЁўЎғҒқҚҳҲ])e/g, '$1э'],
+    [/(^|[^a-zA-Zа-яА-ЯёЁўЎғҒқҚҳҲ])E/g, '$1Э'],
+    [/['‘’ʻʼ`´]/g, 'ъ'],
+  ];
+
+  for (const [rgx, rep] of multiMap) {
+    s = s.replace(rgx, rep);
+  }
+
+  const charMap: Record<string, string> = {
+    a: 'а', A: 'А',
+    b: 'б', B: 'Б',
+    d: 'д', D: 'Д',
+    e: 'е', E: 'Е',
+    f: 'ф', F: 'Ф',
+    g: 'г', G: 'Г',
+    h: 'ҳ', H: 'Ҳ',
+    i: 'и', I: 'И',
+    j: 'ж', J: 'Ж',
+    k: 'к', K: 'К',
+    l: 'л', L: 'Л',
+    m: 'м', M: 'М',
+    n: 'н', N: 'Н',
+    o: 'о', O: 'О',
+    p: 'п', P: 'П',
+    q: 'қ', Q: 'Қ',
+    r: 'р', R: 'Р',
+    s: 'с', S: 'С',
+    t: 'т', T: 'Т',
+    u: 'у', U: 'У',
+    v: 'в', V: 'В',
+    x: 'х', X: 'Х',
+    y: 'й', Y: 'Й',
+    z: 'з', Z: 'З',
+  };
+
+  return s
+    .split('')
+    .map((ch) => charMap[ch] ?? ch)
+    .join('');
+}
 
 export function forSpeech(text: string): string {
   let result = text;
   for (const [pattern, spoken] of PRONUNCIATION) {
     result = result.replace(pattern, spoken);
   }
-  return result;
+  return USE_CYRILLIC ? toLatinToCyrillic(result) : result;
 }
 
 export type VoiceCategory = 'uz_tr' | 'ru_cyrl' | 'browser_classic' | 'gemini_special';
@@ -710,18 +808,7 @@ async function resolveVoiceForConfig(
 }
 
 export function normalizeUzbekForFluentSpeech(rawText: string): string {
-  if (!rawText) return '';
-
-  return String(rawText)
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/https?:\/\/\S+/g, '')
-    .replace(/[`#*~_>|\\/<>\[\]{}()]/g, ' ')
-    .replace(/\bEy!\s*/gi, 'Hoy, ')
-    .replace(/\bEy\s+/gi, 'Hoy ')
-    .replace(/[^\p{L}\p{N}\s.,!?'"‘’ʻʼ-]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 580);
+  return cleanForSpeech(rawText);
 }
 
 export function stopAllBoySpeech(): void {
@@ -757,7 +844,7 @@ export async function previewVoiceConfig(
   stopAllBoySpeech();
   const myRequestId = ++currentSpeechRequestId;
 
-  const clean = forSpeech(normalizeUzbekForFluentSpeech(sampleText));
+  const clean = forSpeech(fixUzbekApostrophe(cleanForSpeech(sampleText)));
   if (!clean) {
     options?.onEnd?.();
     return;

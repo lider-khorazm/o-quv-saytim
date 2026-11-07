@@ -524,12 +524,18 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   // Yagona markaziy bazadagi barcha o'quvchi va ustozlarni noldan tozalash (0 qilish)
   const handleClearAllDatabase = async () => {
+    const kiritilganSoz = prompt("Bazani tozalash uchun maxfiy so'zni kiriting:");
+    if (!kiritilganSoz) return;
+    const ok = await resetEntireCentralDatabase(kiritilganSoz);
+    if (!ok) {
+      recordAdminAction("Xatolik: Maxfiy so'z noto'g'ri yoki ruxsat yo'q (403)!");
+      return;
+    }
     saveStudents([]);
     saveTeachers([]);
     saveGeneratedTests([]);
     saveTestSubmissions([]);
     clearAllTestSubmissions();
-    await resetEntireCentralDatabase();
     triggerRefresh();
     recordAdminAction("Yagona markaziy baza barcha kompyuterlar uchun to'liq tozalandi (0 qilindi)!");
   };
