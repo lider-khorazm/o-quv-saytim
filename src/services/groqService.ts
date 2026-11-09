@@ -3,7 +3,7 @@ import { GroqChatMessage, AiAdminReport, AiFriendPersona } from '../types';
 // Universal AI & Groq API chaqiruvi (Serverdagi /api/ai-chat bilan bog'langan)
 export async function sendGroqChat(
   messages: GroqChatMessage[],
-  model: string = 'llama-3.3-70b-versatile',
+  model: string = 'openai/gpt-oss-120b',
   temperature: number = 0.5
 ): Promise<{ text: string; isRealApi: boolean }> {
   // Serverdagi /api/ai-chat orqali haqiqiy AI javobini olish
@@ -177,7 +177,7 @@ QAT'IY QOIDALAR:
     { role: 'user', content: userPrompt },
   ];
 
-  return sendGroqChat(messages, 'llama-3.3-70b-versatile', 0.4);
+  return sendGroqChat(messages, 'openai/gpt-oss-120b', 0.4);
 }
 
 // 2. USTOZ AI: "Ustoz Temur"
@@ -215,7 +215,7 @@ QAT'IY QOIDALAR:
     { role: 'user', content: userPrompt },
   ];
 
-  return sendGroqChat(messages, 'llama-3.3-70b-versatile', 0.6);
+  return sendGroqChat(messages, 'openai/gpt-oss-120b', 0.6);
 }
 
 // 3. ADMIN YORDAMCHISI 1: "Admin Jasur" (Xavfsizlik, Monitoring & Database Boshqaruvi)
@@ -259,7 +259,7 @@ QAT'IY QOIDALAR:
     { role: 'user', content: command },
   ];
 
-  return sendGroqChat(messages, 'llama-3.3-70b-versatile', 0.3);
+  return sendGroqChat(messages, 'openai/gpt-oss-120b', 0.3);
 }
 
 // 4. ADMIN YORDAMCHISI 2: "Admin Sherzod" (Akademik ko'rsatkichlar, Testlar, XP & Ma'lumotlar Bazasi tahlili)
@@ -301,7 +301,7 @@ QAT'IY QOIDALAR:
     { role: 'user', content: command },
   ];
 
-  return sendGroqChat(messages, 'llama-3.3-70b-versatile', 0.3);
+  return sendGroqChat(messages, 'openai/gpt-oss-120b', 0.3);
 }
 
 // 5. ADMIN YORDAMCHISI 3: "Admin Doston / Shaxsiy AI Do'st" (Lord Olimjon va tanlangan foydalanuvchilarning AI do'sti)
@@ -365,7 +365,7 @@ ${stats.studentsList ? `Talabalar: \n${stats.studentsList}` : ''}`;
     { role: 'user', content: command },
   ];
 
-  return sendGroqChat(messages, 'llama-3.3-70b-versatile', 0.6);
+  return sendGroqChat(messages, 'openai/gpt-oss-120b', 0.6);
 }
 
 // 6. MEGA AI ⚡ — CHEKLOVSIZ SUPER INTELLEKT (UNRESTRICTED OMNI-INTELLIGENCE)
@@ -405,7 +405,7 @@ SIZNING FARQLARINGIZ VA CHEKLOVSIZLIK PRINSIPLARI:
     { role: 'user', content: command },
   ];
 
-  return sendGroqChat(messages, 'llama-3.3-70b-versatile', isTurbo ? 0.85 : 0.7);
+  return sendGroqChat(messages, 'openai/gpt-oss-120b', isTurbo ? 0.85 : 0.7);
 }
 
 // Alias for backwards-compatibility

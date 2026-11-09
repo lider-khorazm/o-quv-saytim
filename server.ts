@@ -52,6 +52,7 @@ function getGeminiClient(): GoogleGenAI | null {
 
 // Groq kaliti FAQAT muhit o'zgaruvchisidan olinadi (kodga yozib qo'yilmaydi!)
 const DEFAULT_GROQ_KEY = process.env.GROQ_API_KEY || '';
+const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 
 const AI_SYSTEM_INSTRUCTION = `Siz CMDbek (Gemini AI) — DevMaster Academy platformasining do'ppi kiygan, quvnoq, hazilkash va har tomonlama bilimli sun'iy intellekt (AI) yordamchisisiz!
 
@@ -157,7 +158,7 @@ async function generateAiResponse(params: {
       ? params.model
       : 'gemini-3.8-flash';
 
-  // 2. Try Groq API (Llama 3.3 70B)
+  // 2. Try Groq API (gpt-oss-120b)
   const activeGroqKey = process.env.GROQ_API_KEY;
 
   if (activeGroqKey) {
@@ -178,22 +179,22 @@ async function generateAiResponse(params: {
           Authorization: `Bearer ${activeGroqKey}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: GROQ_MODEL,
           messages: groqMessages,
           temperature: 0.78,
-          max_tokens: 1024,
+          max_tokens: 2000,
         }),
       });
 
       if (groqRes.ok) {
         const groqData = await groqRes.json();
         const reply = groqData.choices?.[0]?.message?.content;
-        if (reply) {
+        if (reply && String(reply).trim()) {
           if (isRestrictedTopic(reply)) {
             return {
               reply: RESTRICTED_TOPIC_REPLY,
-              provider: 'Groq (Llama 3.3 70B)',
-              model: 'llama-3.3-70b-versatile',
+              provider: 'Groq (gpt-oss-120b)',
+              model: GROQ_MODEL,
               mood: 'oops',
               sources: [],
             };
@@ -201,11 +202,13 @@ async function generateAiResponse(params: {
           const mood = detectEmotionFromText(cleanMsg, reply);
           return {
             reply,
-            provider: 'Groq (Llama 3.3 70B)',
-            model: 'llama-3.3-70b-versatile',
+            provider: 'Groq (gpt-oss-120b)',
+            model: GROQ_MODEL,
             mood,
             sources: [],
           };
+        } else {
+          console.error('Groq API empty content:', JSON.stringify(groqData));
         }
       } else {
         const errText = await groqRes.text();
