@@ -17,9 +17,8 @@ import {
   Trophy,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { loginUser, registerStudent } from '../services/storage';
+import { loginUser, registerStudent, getStudents } from '../services/storage';
 import { AuthUser, Student, Teacher } from '../types';
-import { CloudflareTurnstile } from './CloudflareTurnstile';
 import { evaluatePasswordStrength } from './RegistrationModal';
 import { AuroraMascot } from './AuroraMascot';
 
@@ -48,11 +47,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Register state
   const [regName, setRegName] = useState('');
   const [regSurname, setRegSurname] = useState('');
+  const [regAge, setRegAge] = useState('');
   const [regUsername, setRegUsername] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
-  const [isAgeConfirmed, setIsAgeConfirmed] = useState(true);
-  const [isHumanVerified, setIsHumanVerified] = useState(false);
 
   useEffect(() => {
     const prevHtmlOverflow = document.documentElement.style.overflow;
@@ -107,23 +106,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
+    const parsedAge = Number(regAge);
+    if (!regAge.trim() || !Number.isInteger(parsedAge) || parsedAge < 1 || parsedAge > 99) {
+      triggerShake("Yoshingizni to'g'ri kiriting");
+      return;
+    }
+
     if (!cleanUsername || cleanUsername.length < 3) {
       triggerShake("Login kamida 3 ta belgidan iborat bo'lishi kerak!");
       return;
     }
 
-    if (!regPassword || regPassword.length < 8) {
-      triggerShake("Parol kamida 8 ta belgidan iborat bo'lishi shart!");
+    const isUsernameTaken = getStudents().some(
+      (s) => s.username.trim().toLowerCase() === cleanUsername
+    );
+    if (isUsernameTaken) {
+      triggerShake('Bu login band, boshqasini tanlang');
       return;
     }
 
-    if (!isAgeConfirmed) {
-      triggerShake("Ro'yxatdan o'tish uchun 13 yoshdan katta ekanligingizni tasdiqlang!");
+    if (!regPassword || regPassword.length < 6) {
+      triggerShake("Parol kamida 6 ta belgidan iborat bo'lishi shart!");
       return;
     }
 
-    if (!isHumanVerified) {
-      triggerShake('Iltimos, Cloudflare orqali odam ekanligingizni tasdiqlang!');
+    if (regPassword !== regConfirmPassword) {
+      triggerShake('Parollar bir xil emas');
       return;
     }
 
@@ -133,6 +141,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         surname: cleanSurname,
         username: cleanUsername,
         password: regPassword,
+        age: parsedAge,
       });
 
       try {
@@ -330,7 +339,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </button>
               </form>
             ) : (
-              <form onSubmit={handleRegisterSubmit} className="space-y-3.5 text-xs">
+              <form onSubmit={handleRegisterSubmit} noValidate className="space-y-3.5 text-xs">
                 <div className="flex items-center justify-between px-1">
                   <span className="opacity-75">Yangi o&apos;quvchi hisobi</span>
                   <span className="inline-flex items-center gap-1 text-[#ffd23f] font-mono font-bold">
@@ -374,31 +383,51 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="font-bold">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold mb-1">
                       <span className="inline-flex items-center gap-1.5">
-                        <KeyRound className="w-3.5 h-3.5 text-[#3ee6c4]" />
-                        <span>Loginni kiriting (Username)</span>
+                        <User className="w-3.5 h-3.5 text-[#ffd23f]" />
+                        <span>Yosh (13–99)</span>
                       </span>
                     </label>
-                    <button
-                      type="button"
-                      onClick={handleGenerateUsername}
-                      className="text-[11px] text-[#3ee6c4] font-bold flex items-center gap-1 cursor-pointer"
-                    >
-                      <Wand2 className="w-3 h-3" />
-                      <span>Avto-tanlash</span>
-                    </button>
+                    <input
+                      type="number"
+                      min={13}
+                      max={99}
+                      value={regAge}
+                      onChange={(e) => setRegAge(e.target.value)}
+                      placeholder="16"
+                      className="w-full aurora-input font-mono"
+                    />
                   </div>
-                  <input
-                    type="text"
-                    required
-                    value={regUsername}
-                    onChange={(e) => setRegUsername(e.target.value)}
-                    placeholder="sardor_dev"
-                    className="w-full aurora-input font-mono"
-                  />
+
+                  <div className="sm:col-span-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-bold">
+                        <span className="inline-flex items-center gap-1.5">
+                          <KeyRound className="w-3.5 h-3.5 text-[#3ee6c4]" />
+                          <span>Loginni kiriting (Username)</span>
+                        </span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleGenerateUsername}
+                        className="text-[11px] text-[#3ee6c4] font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Wand2 className="w-3 h-3" />
+                        <span>Avto-tanlash</span>
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={regUsername}
+                      onChange={(e) => setRegUsername(e.target.value)}
+                      placeholder="sardor_dev"
+                      className="w-full aurora-input font-mono"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -406,7 +435,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <label className="font-bold">
                       <span className="inline-flex items-center gap-1.5">
                         <Lock className="w-3.5 h-3.5 text-[#ff6b86]" />
-                        <span>Parolni kiriting (kamida 8 ta belgi)</span>
+                        <span>Parol yaratish (kamida 6 ta belgi)</span>
                       </span>
                     </label>
                     {regPassword.length > 0 && (
@@ -420,10 +449,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <input
                       type={showRegPassword ? 'text' : 'password'}
                       required
-                      minLength={8}
+                      minLength={6}
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
-                      placeholder="Kamida 8 ta belgi kiriting"
+                      placeholder="Kamida 6 ta belgi kiriting"
                       className="w-full pr-11 aurora-input font-mono"
                     />
                     <button
@@ -459,27 +488,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </div>
                     <div className="flex items-center justify-between text-[10px]">
                       <span className={regStrength.textColorClass}>{regStrength.detailText}</span>
-                      <span className="opacity-65 font-mono">{regPassword.length}/8+</span>
+                      <span className="opacity-65 font-mono">{regPassword.length}/6+</span>
                     </div>
                   </div>
                 </div>
 
-                <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={isAgeConfirmed}
-                    onChange={(e) => setIsAgeConfirmed(e.target.checked)}
-                    className="w-4 h-4 accent-[#ff6b86] rounded"
-                  />
-                  <span className="text-xs opacity-85">
-                    Men 13 yoshdan kattaman va qoidalarga roziman
-                  </span>
-                </label>
-
-                <CloudflareTurnstile
-                  isVerified={isHumanVerified}
-                  onVerify={setIsHumanVerified}
-                />
+                <div>
+                  <label className="block font-bold mb-1">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-[#ff8a3d]" />
+                      <span>Parolni takrorlang</span>
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showRegPassword ? 'text' : 'password'}
+                      required
+                      value={regConfirmPassword}
+                      onChange={(e) => setRegConfirmPassword(e.target.value)}
+                      placeholder="Parolni qayta kiriting"
+                      className="w-full pr-11 aurora-input font-mono"
+                    />
+                  </div>
+                </div>
 
                 <button
                   type="submit"
@@ -488,6 +519,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <Rocket className="w-4 h-4" />
                   <span>Ro&apos;yxatdan O&apos;tish va Kirish</span>
                 </button>
+                <p className="text-center text-[11px] opacity-70">
+                  Ro&apos;yxatdan o&apos;tib, o&apos;quv qoidalariga rozi bo&apos;lasiz
+                </p>
               </form>
             )}
           </div>

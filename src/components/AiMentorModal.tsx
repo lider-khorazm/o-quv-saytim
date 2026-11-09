@@ -62,13 +62,6 @@ export function AiMentorModal({
 
   const [activeMood, setActiveMood] = useState<CmdBekMood>('happy');
   const [inputVal, setInputVal] = useState('');
-  const [groqKey, setGroqKey] = useState<string>(() => {
-    try {
-      return localStorage.getItem('tanishuv_groq_api_key') || SHARED_GROQ_KEY;
-    } catch {
-      return SHARED_GROQ_KEY;
-    }
-  });
   const [showKeyConfig, setShowKeyConfig] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -205,7 +198,6 @@ export function AiMentorModal({
           model: 'gemini-3.8-flash',
           userName,
           isAdminMode: isAdminMode || authUser?.role === 'owner' || authUser?.role === 'sub_admin',
-          groqApiKey: groqKey.trim(),
         }),
       });
 
@@ -269,14 +261,6 @@ export function AiMentorModal({
   }, [isOpen, initialVoicePrompt]);
 
   if (!isOpen) return null;
-
-  const handleSaveKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      localStorage.setItem('tanishuv_groq_api_key', groqKey.trim());
-    } catch {}
-    setShowKeyConfig(false);
-  };
 
   const handleResetChat = () => {
     handleStopAiResponse();
@@ -445,38 +429,10 @@ export function AiMentorModal({
         {/* API Key Drawer */}
         {showKeyConfig && (
           <div className="p-4 bg-[#ffd23f]/10 border-b border-[#ffd23f]/30">
-            <form onSubmit={handleSaveKey} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-extrabold text-[#ffd23f] flex items-center gap-1.5">
-                  <Key className="w-3.5 h-3.5" />
-                  Groq API Key (ixtiyoriy — shaxsiy kalit):
-                </label>
-                {groqKey && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setGroqKey('');
-                      localStorage.removeItem('tanishuv_groq_api_key');
-                    }}
-                    className="text-[11px] text-[#ff6b86] hover:underline font-bold"
-                  >
-                    Kalitni o&apos;chirish
-                  </button>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={groqKey}
-                  onChange={(e) => setGroqKey(e.target.value)}
-                  placeholder="gsk_..."
-                  className="aurora-input flex-1 text-xs py-2 font-mono"
-                />
-                <button type="submit" className="duo-btn duo-btn-gold px-4 py-2 text-xs">
-                  Saqlash
-                </button>
-              </div>
-            </form>
+            <p className="text-xs font-extrabold text-[#ffd23f] flex items-center gap-1.5">
+              <Key className="w-3.5 h-3.5" />
+              AI kaliti serverda saqlanadi
+            </p>
           </div>
         )}
 

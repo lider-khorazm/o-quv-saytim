@@ -20,8 +20,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Teacher, Student } from '../types';
-import { registerStudent, MALE_PROGRAMMER_AVATAR } from '../services/storage';
-import { CloudflareTurnstile } from './CloudflareTurnstile';
+import { registerStudent, getStudents, MALE_PROGRAMMER_AVATAR } from '../services/storage';
 import { AuroraMascot } from './AuroraMascot';
 
 interface RegistrationModalProps {
@@ -40,7 +39,7 @@ export function evaluatePasswordStrength(pwd: string): {
     return {
       level: 0,
       statusLabel: 'Parol kiritilmagan',
-      detailText: 'Kamida 8 ta belgidan iborat parol yarating',
+      detailText: 'Kamida 6 ta belgidan iborat parol yarating',
       barActiveClass: 'bg-white/10',
       textColorClass: 'opacity-65',
     };
@@ -52,20 +51,20 @@ export function evaluatePasswordStrength(pwd: string): {
   const hasSpecial = /[^A-Za-z0-9]/.test(pwd);
   const varietyCount = [hasLower, hasUpper, hasNumber, hasSpecial].filter(Boolean).length;
 
-  if (pwd.length < 8 || varietyCount === 1) {
+  if (pwd.length < 6 || varietyCount === 1) {
     return {
       level: 1,
       statusLabel: 'Kuchsiz',
       detailText:
-        pwd.length < 8
-          ? `Kamida 8 ta belgi kiriting (${pwd.length}/8)`
+        pwd.length < 6
+          ? `Kamida 6 ta belgi kiriting (${pwd.length}/6)`
           : 'Harf va raqamlarni aralashtiring',
       barActiveClass: 'bg-[#ff4d6d] shadow-[0_0_10px_rgba(255,77,109,0.75)]',
       textColorClass: 'text-[#ff6b86]',
     };
   }
 
-  if (pwd.length >= 8 && (varietyCount >= 3 || (pwd.length >= 10 && varietyCount >= 2))) {
+  if (pwd.length >= 6 && (varietyCount >= 3 || (pwd.length >= 8 && varietyCount >= 2))) {
     return {
       level: 3,
       statusLabel: 'Kuchli',
@@ -90,11 +89,11 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
+  const [age, setAge] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isAgeConfirmed, setIsAgeConfirmed] = useState(true);
-  const [isHumanVerified, setIsHumanVerified] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [shakeError, setShakeError] = useState(false);
 
@@ -143,23 +142,32 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
       return;
     }
 
+    const parsedAge = Number(age);
+    if (!age.trim() || !Number.isInteger(parsedAge) || parsedAge < 1 || parsedAge > 99) {
+      triggerShake("Yoshingizni to'g'ri kiriting");
+      return;
+    }
+
     if (!cleanUsername || cleanUsername.length < 3) {
       triggerShake("Login kamida 3 ta belgidan iborat bo'lishi kerak!");
       return;
     }
 
-    if (!password || password.length < 8) {
-      triggerShake("Parol kamida 8 ta belgidan iborat bo'lishi shart!");
+    const isUsernameTaken = getStudents().some(
+      (s) => s.username.trim().toLowerCase() === cleanUsername
+    );
+    if (isUsernameTaken) {
+      triggerShake('Bu login band, boshqasini tanlang');
       return;
     }
 
-    if (!isAgeConfirmed) {
-      triggerShake("Ro'yxatdan o'tish uchun 13 yoshdan katta ekanligingizni tasdiqlang!");
+    if (!password || password.length < 6) {
+      triggerShake("Parol kamida 6 ta belgidan iborat bo'lishi shart!");
       return;
     }
 
-    if (!isHumanVerified) {
-      triggerShake('Iltimos, Cloudflare orqali odam ekanligingizni tasdiqlang!');
+    if (password !== confirmPassword) {
+      triggerShake('Parollar bir xil emas');
       return;
     }
 
@@ -169,6 +177,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
         surname: cleanSurname,
         username: cleanUsername,
         password: password,
+        age: parsedAge,
       });
 
       setRegisteredData(res);
@@ -284,7 +293,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+              <form onSubmit={handleSubmit} noValidate className="space-y-3.5 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-bold mb-1">
@@ -321,32 +330,52 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                   </div>
                 </div>
 
-                {/* Username */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="font-bold">
+                {/* Age & Username */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold mb-1">
                       <span className="inline-flex items-center gap-1.5">
-                        <KeyRound className="w-3.5 h-3.5 text-[#3ee6c4]" />
-                        <span>Loginni kiriting (Username)</span>
+                        <User className="w-3.5 h-3.5 text-[#ffd23f]" />
+                        <span>Yosh (13–99)</span>
                       </span>
                     </label>
-                    <button
-                      type="button"
-                      onClick={handleGenerateUsername}
-                      className="text-[11px] text-[#3ee6c4] font-bold flex items-center gap-1 cursor-pointer"
-                    >
-                      <Wand2 className="w-3 h-3" />
-                      <span>Avto-tanlash</span>
-                    </button>
+                    <input
+                      type="number"
+                      min={13}
+                      max={99}
+                      value={age}
+                      onChange={(e) => setAge(e.target.value)}
+                      placeholder="16"
+                      className="w-full aurora-input font-mono"
+                    />
                   </div>
-                  <input
-                    type="text"
-                    required
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="sardor_dev"
-                    className="w-full aurora-input font-mono"
-                  />
+
+                  <div className="sm:col-span-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-bold">
+                        <span className="inline-flex items-center gap-1.5">
+                          <KeyRound className="w-3.5 h-3.5 text-[#3ee6c4]" />
+                          <span>Loginni kiriting (Username)</span>
+                        </span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleGenerateUsername}
+                        className="text-[11px] text-[#3ee6c4] font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Wand2 className="w-3 h-3" />
+                        <span>Avto-tanlash</span>
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="sardor_dev"
+                      className="w-full aurora-input font-mono"
+                    />
+                  </div>
                 </div>
 
                 {/* Password + 3-bar strength indicator */}
@@ -355,7 +384,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                     <label className="font-bold">
                       <span className="inline-flex items-center gap-1.5">
                         <Lock className="w-3.5 h-3.5 text-[#ff6b86]" />
-                        <span>Parol yaratish (kamida 8 ta belgi)</span>
+                        <span>Parol yaratish (kamida 6 ta belgi)</span>
                       </span>
                     </label>
                     {password.length > 0 && (
@@ -369,10 +398,10 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
-                      minLength={8}
+                      minLength={6}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Kamida 8 ta belgi kiriting"
+                      placeholder="Kamida 6 ta belgi kiriting"
                       className="w-full pr-11 aurora-input font-mono"
                     />
                     <button
@@ -405,28 +434,30 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                     </div>
                     <div className="flex items-center justify-between text-[10px]">
                       <span className={strength.textColorClass}>{strength.detailText}</span>
-                      <span className="opacity-65 font-mono">{password.length}/8+</span>
+                      <span className="opacity-65 font-mono">{password.length}/6+</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Age 13+ check */}
-                <label className="flex items-center gap-2.5 cursor-pointer select-none pt-0.5">
-                  <input
-                    type="checkbox"
-                    checked={isAgeConfirmed}
-                    onChange={(e) => setIsAgeConfirmed(e.target.checked)}
-                    className="w-4 h-4 accent-[#ff6b86] rounded"
-                  />
-                  <span className="text-xs opacity-85">
-                    Men 13 yoshdan kattaman va o&apos;quv qoidalariga roziman
-                  </span>
-                </label>
-
-                <CloudflareTurnstile
-                  isVerified={isHumanVerified}
-                  onVerify={setIsHumanVerified}
-                />
+                {/* Confirm Password */}
+                <div>
+                  <label className="block font-bold mb-1">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-[#ff8a3d]" />
+                      <span>Parolni takrorlang</span>
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Parolni qayta kiriting"
+                      className="w-full pr-11 aurora-input font-mono"
+                    />
+                  </div>
+                </div>
 
                 <button
                   type="submit"
@@ -435,6 +466,9 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                   <Rocket className="w-4 h-4" />
                   <span>Ro&apos;yxatdan O&apos;tish va Boshlash</span>
                 </button>
+                <p className="text-center text-[11px] opacity-70">
+                  Ro&apos;yxatdan o&apos;tib, o&apos;quv qoidalariga rozi bo&apos;lasiz
+                </p>
               </form>
             </div>
           </div>

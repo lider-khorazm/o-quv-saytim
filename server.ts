@@ -157,67 +157,8 @@ async function generateAiResponse(params: {
       ? params.model
       : 'gemini-3.8-flash';
 
-  // 1. Try Google Gemini SDK (@google/genai) first
-  const gemini = getGeminiClient();
-  if (gemini) {
-    try {
-      const contents = [
-        ...normalizedHistory.map((h) => ({
-          role: h.sender === 'user' ? 'user' : 'model',
-          parts: [{ text: h.text }],
-        })),
-        { role: 'user', parts: [{ text: cleanMsg }] },
-      ];
-
-      const configObj: any = {
-        systemInstruction: fullSystemPrompt,
-      };
-      if (params.useGoogleSearch) {
-        configObj.tools = [{ googleSearch: {} }];
-      }
-
-      const response = await gemini.models.generateContent({
-        model: chosenGeminiModel,
-        contents,
-        config: configObj,
-      });
-
-      if (response.text) {
-        if (isRestrictedTopic(response.text)) {
-          return {
-            reply: RESTRICTED_TOPIC_REPLY,
-            provider: `Gemini (${chosenGeminiModel})`,
-            model: chosenGeminiModel,
-            mood: 'oops',
-            sources: [],
-          };
-        }
-
-        const groundingChunks =
-          response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-        const sources = groundingChunks
-          .map((c: any) => (c.web ? { title: c.web.title || c.web.uri, uri: c.web.uri } : null))
-          .filter(Boolean);
-
-        const mood = detectEmotionFromText(cleanMsg, response.text);
-        return {
-          reply: response.text,
-          provider: `Google Gemini (${chosenGeminiModel})`,
-          model: chosenGeminiModel,
-          mood,
-          sources,
-        };
-      }
-    } catch (gemErr) {
-      console.warn('Gemini SDK notice, trying fallback:', gemErr);
-    }
-  }
-
   // 2. Try Groq API (Llama 3.3 70B)
-  const activeGroqKey =
-    params.groqApiKey && params.groqApiKey.trim().length > 10
-      ? params.groqApiKey.trim()
-      : DEFAULT_GROQ_KEY;
+  const activeGroqKey = process.env.GROQ_API_KEY;
 
   if (activeGroqKey) {
     try {
@@ -251,8 +192,8 @@ async function generateAiResponse(params: {
           if (isRestrictedTopic(reply)) {
             return {
               reply: RESTRICTED_TOPIC_REPLY,
-              provider: 'Gemini & CMDbek AI',
-              model: chosenGeminiModel,
+              provider: 'Groq (Llama 3.3 70B)',
+              model: 'llama-3.3-70b-versatile',
               mood: 'oops',
               sources: [],
             };
@@ -260,15 +201,18 @@ async function generateAiResponse(params: {
           const mood = detectEmotionFromText(cleanMsg, reply);
           return {
             reply,
-            provider: `Gemini + CMDbek AI`,
-            model: chosenGeminiModel,
+            provider: 'Groq (Llama 3.3 70B)',
+            model: 'llama-3.3-70b-versatile',
             mood,
             sources: [],
           };
         }
+      } else {
+        const errText = await groqRes.text();
+        console.error('Groq API error:', groqRes.status, errText);
       }
     } catch (e) {
-      console.warn('Groq API error:', e);
+      console.error('Groq API error:', e);
     }
   }
 
@@ -277,7 +221,7 @@ async function generateAiResponse(params: {
   const mood = detectEmotionFromText(cleanMsg, fallbackReply);
   return {
     reply: fallbackReply,
-    provider: `Gemini (${chosenGeminiModel})`,
+    provider: 'Zaxira (Groq ishlamadi)',
     model: chosenGeminiModel,
     mood,
     sources: [],

@@ -28,7 +28,7 @@ export const StudentPublicProfileModal: React.FC<StudentPublicProfileModalProps>
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-3xl bg-[#1c242f] border border-white/15 shadow-2xl overflow-hidden text-white animate-in fade-in zoom-in-95 duration-150"
+        className="w-full max-w-sm max-h-[90vh] rounded-3xl bg-[#1c242f] border border-white/15 shadow-2xl overflow-y-auto overflow-x-hidden text-white animate-in fade-in zoom-in-95 duration-150"
       >
         {/* Top Section (Telegram Info Card Style matching user's screenshot) */}
         <div className="relative pt-7 pb-5 px-6 flex flex-col items-center text-center bg-[#17212b]">

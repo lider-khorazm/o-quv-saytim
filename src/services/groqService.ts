@@ -1,73 +1,12 @@
 import { GroqChatMessage, AiAdminReport, AiFriendPersona } from '../types';
 
-const GROQ_STORAGE_KEY = 'devmaster_groq_api_key';
-
-export function getGroqApiKey(): string {
-  try {
-    return localStorage.getItem(GROQ_STORAGE_KEY) || '';
-  } catch {
-    return '';
-  }
-}
-
-export function setGroqApiKey(key: string): void {
-  try {
-    localStorage.setItem(GROQ_STORAGE_KEY, key.trim());
-  } catch (e) {
-    console.error('Groq API kalitini saqlashda xatolik:', e);
-  }
-}
-
-export function clearGroqApiKey(): void {
-  try {
-    localStorage.removeItem(GROQ_STORAGE_KEY);
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-export function hasGroqApiKey(): boolean {
-  const k = getGroqApiKey();
-  return Boolean(k && k.startsWith('gsk_') && k.length > 20);
-}
-
-// Universal AI & Groq API chaqiruvi (Serverdagi Gemini 3.8 Flash / Groq API bilan bog'langan)
+// Universal AI & Groq API chaqiruvi (Serverdagi /api/ai-chat bilan bog'langan)
 export async function sendGroqChat(
   messages: GroqChatMessage[],
   model: string = 'llama-3.3-70b-versatile',
   temperature: number = 0.5
 ): Promise<{ text: string; isRealApi: boolean }> {
-  const apiKey = getGroqApiKey();
-
-  if (apiKey) {
-    try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature,
-          max_tokens: 1500,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content;
-        if (content) {
-          return { text: content.trim(), isRealApi: true };
-        }
-      }
-    } catch (err) {
-      console.warn('Groq API tarmoq xatosi:', err);
-    }
-  }
-
-  // Serverdagi /api/ai-chat (Gemini 3.8 Flash + Groq) orqali haqiqiy AI javobini olish
+  // Serverdagi /api/ai-chat orqali haqiqiy AI javobini olish
   try {
     const lastUser = messages.filter((m) => m.role === 'user').pop()?.content || '';
     const sys = messages.find((m) => m.role === 'system')?.content || '';
@@ -84,7 +23,7 @@ export async function sendGroqChat(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: lastUser,
-        context: sys.slice(0, 600),
+        context: sys,
         history,
       }),
     });

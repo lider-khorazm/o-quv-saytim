@@ -67,6 +67,7 @@ import {
   getGeneratedTests,
   saveGeneratedTests,
   saveTestSubmissions,
+  getStudents,
   saveStudents,
   saveTeachers,
   resetEntireCentralDatabase,
@@ -520,6 +521,24 @@ export const AdminView: React.FC<AdminViewProps> = ({
     saveTestSubmissions(remainingSubs);
     triggerRefresh();
     recordAdminAction(`Talaba "${student.name} ${student.surname}" (@${student.username}) yagona bazadan butunlay o'chirildi!`);
+  };
+
+  // O'quvchi parolini tiklash funksiyasi
+  const handleResetStudentPassword = (student: Student) => {
+    const newPass = prompt(`${student.name} ${student.surname} uchun yangi parolni kiriting (kamida 6 ta belgi):`);
+    if (newPass === null) return;
+    if (newPass.trim().length < 6) {
+      recordAdminAction("Xato: Parol kamida 6 ta belgidan iborat bo'lishi kerak!");
+      return;
+    }
+    const allStudents = getStudents();
+    const target = allStudents.find((s) => s.id === student.id);
+    if (target) {
+      target.password = newPass.trim();
+      saveStudents(allStudents);
+      triggerRefresh();
+      recordAdminAction('Parol yangilandi');
+    }
   };
 
   // Yagona markaziy bazadagi barcha o'quvchi va ustozlarni noldan tozalash (0 qilish)
@@ -2378,6 +2397,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           </button>
 
                           <button
+                            onClick={() => handleResetStudentPassword(s)}
+                            className="px-2.5 py-1.5 rounded-xl bg-[#b6f03c]/15 text-[#b6f03c] text-xs font-bold cursor-pointer hover:bg-[#b6f03c]/25"
+                          >
+                            Parolni tiklash
+                          </button>
+
+                          <button
                             onClick={() => setEditingStudent(s)}
                             className="px-2.5 py-1.5 rounded-xl bg-[#3ee6c4]/15 text-[#3ee6c4] text-xs font-bold cursor-pointer hover:bg-[#3ee6c4]/25 flex items-center gap-1"
                           >
@@ -2544,6 +2570,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
                                   🪙 +20
                                 </button>
                                 <button
+                                  onClick={() => handleResetStudentPassword(s)}
+                                  className="px-2.5 py-1 rounded-xl bg-[#b6f03c]/15 text-[#b6f03c] text-[11px] font-bold cursor-pointer"
+                                >
+                                  Parolni tiklash
+                                </button>
+                                <button
                                   onClick={() => setEditingStudent(s)}
                                   className="px-2.5 py-1 rounded-xl bg-[#3ee6c4]/15 text-[#3ee6c4] text-[11px] font-bold cursor-pointer flex items-center gap-1"
                                 >
@@ -2677,6 +2709,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           <td className="p-3.5 text-[#ff8a3d] font-black font-mono">🪙 {s.coins ?? 20}</td>
                           <td className="p-3.5 text-right">
                             <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleResetStudentPassword(s)}
+                                className="px-2.5 py-1 rounded-xl bg-[#b6f03c]/15 text-[#b6f03c] text-[11px] font-bold cursor-pointer"
+                              >
+                                Parolni tiklash
+                              </button>
                               <button
                                 onClick={() => setEditingStudent(s)}
                                 className="px-2.5 py-1 rounded-xl bg-[#3ee6c4]/15 text-[#3ee6c4] text-[11px] font-bold cursor-pointer"

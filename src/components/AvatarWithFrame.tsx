@@ -611,40 +611,340 @@ export const AvatarWithFrame: React.FC<AvatarWithFrameProps> = ({
           style={{ width: frameScale, height: frameScale }}
           className="absolute pointer-events-none z-20"
         >
-          <defs>
-            <linearGradient id={`grad-${frameObj.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor={frameObj.ringColor} />
-              <stop offset="50%" stopColor="#ffffff" />
-              <stop offset="100%" stopColor={frameObj.ringColor} />
-            </linearGradient>
-          </defs>
+          {/* Base inner ring */}
           <circle
             cx="60"
             cy="60"
-            r="48"
-            fill="none"
-            stroke={`url(#grad-${frameObj.id})`}
-            strokeWidth="4"
-            strokeDasharray="14 6 4 6"
-          />
-          <circle
-            cx="60"
-            cy="60"
-            r="53"
+            r="44"
             fill="none"
             stroke={frameObj.ringColor}
-            strokeWidth="1.5"
-            strokeOpacity="0.7"
+            strokeWidth="2.5"
           />
-          <text x="60" y="14" textAnchor="middle" fontSize="14">
-            {frameObj.accentEmoji}
-          </text>
-          <text x="18" y="102" textAnchor="middle" fontSize="12">
-            ✨
-          </text>
-          <text x="102" y="102" textAnchor="middle" fontSize="12">
-            ✨
-          </text>
+
+          {/* 1. Golden Laurel & Gold Crown */}
+          {(frameObj.id === 'frame-golden-laurel' || frameObj.id === 'frame-gold-crown') && (
+            <g>
+              {[-65, -48, -31, -14, 3, 20, 37, 54, 71].map((ang, i) => (
+                <React.Fragment key={i}>
+                  <g transform={`rotate(${ang} 60 60)`}>
+                    <path
+                      d="M 13 60 Q 6 52 12 45 Q 18 52 13 60 Z"
+                      fill={frameObj.ringColor}
+                      opacity="0.9"
+                    />
+                  </g>
+                  <g transform={`scale(-1, 1) translate(-120, 0) rotate(${ang} 60 60)`}>
+                    <path
+                      d="M 13 60 Q 6 52 12 45 Q 18 52 13 60 Z"
+                      fill={frameObj.ringColor}
+                      opacity="0.9"
+                    />
+                  </g>
+                </React.Fragment>
+              ))}
+              {frameObj.id === 'frame-golden-laurel' ? (
+                <polygon
+                  points="60,4 65,9 60,14 55,9"
+                  fill={frameObj.ringColor}
+                  stroke="#ffffff"
+                  strokeWidth="1.2"
+                />
+              ) : (
+                <polygon
+                  points="52,14 50,5 56,9 60,3 64,9 70,5 68,14"
+                  fill={frameObj.ringColor}
+                  stroke="#ffffff"
+                  strokeWidth="1"
+                />
+              )}
+            </g>
+          )}
+
+          {/* 2. Aurora Coral, Neon Lotus, Sakura Wind (12 petals + 12 dots) */}
+          {(frameObj.id === 'frame-aurora-coral' ||
+            frameObj.id === 'frame-neon-lotus' ||
+            frameObj.id === 'frame-sakura-wind') && (
+            <g>
+              {Array.from({ length: 12 }).map((_, i) => (
+                <g key={i} transform={`rotate(${i * 30} 60 60)`}>
+                  <path
+                    d="M 60 15 C 56 8, 56 4, 60 2 C 64 4, 64 8, 60 15 Z"
+                    fill={frameObj.ringColor}
+                    stroke="#ffffff"
+                    strokeWidth="0.6"
+                  />
+                  <circle
+                    cx="60"
+                    cy="7"
+                    r="1.3"
+                    fill="#ffffff"
+                    transform="rotate(15 60 60)"
+                  />
+                </g>
+              ))}
+            </g>
+          )}
+
+          {/* 3. Sunset Orange, Phoenix Rebirth, Magma Titan (12 flame petals) */}
+          {(frameObj.id === 'frame-sunset-orange' ||
+            frameObj.id === 'frame-phoenix-rebirth' ||
+            frameObj.id === 'frame-magma-titan') && (
+            <g>
+              {Array.from({ length: 12 }).map((_, i) => (
+                <g key={i} transform={`rotate(${i * 30} 60 60)`}>
+                  <path
+                    d="M 55 16 Q 58 5 60 1 Q 66 8 65 16 Z"
+                    fill={frameObj.ringColor}
+                  />
+                  <path
+                    d="M 58 15 Q 60 7 60 4 Q 63 9 62 15 Z"
+                    fill="#fde047"
+                    opacity="0.65"
+                  />
+                </g>
+              ))}
+            </g>
+          )}
+
+          {/* 4. Cyan Diamond, Crystal Palace, Arctic Wolf, Quantum Prism (16 crystal spikes) */}
+          {(frameObj.id === 'frame-cyan-diamond' ||
+            frameObj.id === 'frame-crystal-palace' ||
+            frameObj.id === 'frame-arctic-wolf' ||
+            frameObj.id === 'frame-quantum-prism') && (
+            <g>
+              {Array.from({ length: 16 }).map((_, i) => (
+                <g key={i} transform={`rotate(${i * 22.5} 60 60)`}>
+                  <polygon
+                    points="56,16 60,2 64,16"
+                    fill={frameObj.ringColor}
+                    fillOpacity="0.85"
+                    stroke="#ffffff"
+                    strokeWidth="0.6"
+                  />
+                </g>
+              ))}
+            </g>
+          )}
+
+          {/* 5. Mint Cyber, Cyber Glitch, Binary Matrix, Emerald Hacker (Tech HUD ring) */}
+          {(frameObj.id === 'frame-mint-cyber' ||
+            frameObj.id === 'frame-cyber-glitch' ||
+            frameObj.id === 'frame-binary-matrix' ||
+            frameObj.id === 'frame-emerald-hacker') && (
+            <g>
+              <circle
+                cx="60"
+                cy="60"
+                r="49"
+                fill="none"
+                stroke={frameObj.ringColor}
+                strokeWidth="2.5"
+                strokeDasharray="1.5 6"
+              />
+              <circle
+                cx="60"
+                cy="60"
+                r="54"
+                fill="none"
+                stroke={frameObj.ringColor}
+                strokeWidth="2"
+                strokeDasharray="2 5"
+                opacity="0.85"
+              />
+              {[0, 90, 180, 270].map((ang) => (
+                <g key={ang} transform={`rotate(${ang} 60 60)`}>
+                  <line
+                    x1="60"
+                    y1="16"
+                    x2="60"
+                    y2="4"
+                    stroke={frameObj.ringColor}
+                    strokeWidth="2"
+                  />
+                  <circle
+                    cx="60"
+                    cy="4"
+                    r="2.5"
+                    fill="#ffffff"
+                    stroke={frameObj.ringColor}
+                    strokeWidth="1.5"
+                  />
+                </g>
+              ))}
+            </g>
+          )}
+
+          {/* 6. Lime Energy & Thunder Thor (8 lightning bolts) */}
+          {(frameObj.id === 'frame-lime-energy' || frameObj.id === 'frame-thunder-thor') && (
+            <g>
+              <circle
+                cx="60"
+                cy="60"
+                r="47"
+                fill="none"
+                stroke={frameObj.ringColor}
+                strokeWidth="1.5"
+                strokeDasharray="5 4"
+              />
+              {Array.from({ length: 8 }).map((_, i) => (
+                <g key={i} transform={`rotate(${i * 45 + 15} 60 60)`}>
+                  <polyline
+                    points="58,14 63,8 57,7 62,1"
+                    fill="none"
+                    stroke={frameObj.ringColor}
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <polyline
+                    points="58,14 63,8 57,7 62,1"
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="0.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </g>
+              ))}
+            </g>
+          )}
+
+          {/* 7. Celestial Wings */}
+          {frameObj.id === 'frame-celestial-wings' && (
+            <g>
+              <circle
+                cx="60"
+                cy="60"
+                r="48"
+                fill="none"
+                stroke={frameObj.ringColor}
+                strokeWidth="1.4"
+              />
+              {[-36, -18, 0, 18, 36].map((ang, i) => (
+                <React.Fragment key={i}>
+                  <g transform={`rotate(${ang} 60 60)`}>
+                    <path
+                      d="M 12 60 C 2 56, 2 64, 12 60 Z"
+                      fill={frameObj.ringColor}
+                      stroke="#ffffff"
+                      strokeWidth="0.8"
+                    />
+                  </g>
+                  <g transform={`rotate(${ang + 180} 60 60)`}>
+                    <path
+                      d="M 12 60 C 2 56, 2 64, 12 60 Z"
+                      fill={frameObj.ringColor}
+                      stroke="#ffffff"
+                      strokeWidth="0.8"
+                    />
+                  </g>
+                </React.Fragment>
+              ))}
+              <circle cx="60" cy="5" r="2.2" fill={frameObj.ringColor} />
+              <circle cx="60" cy="115" r="2.2" fill={frameObj.ringColor} />
+            </g>
+          )}
+
+          {/* 8. Ruby Royale, Crimson Samurai, Obsidian Stealth (Royal Gem Ring) */}
+          {(frameObj.id === 'frame-ruby-royale' ||
+            frameObj.id === 'frame-crimson-samurai' ||
+            frameObj.id === 'frame-obsidian-stealth') && (
+            <g>
+              <circle
+                cx="60"
+                cy="60"
+                r="55"
+                fill="none"
+                stroke={frameObj.ringColor}
+                strokeWidth="1.2"
+                opacity="0.8"
+              />
+              {[0, 90, 180, 270].map((ang) => (
+                <g key={ang} transform={`rotate(${ang} 60 60)`}>
+                  <polygon
+                    points="60,4 64,10 60,16 56,10"
+                    fill={frameObj.ringColor}
+                    stroke="#ffffff"
+                    strokeWidth="1.2"
+                  />
+                </g>
+              ))}
+              {[45, 135, 225, 315].map((ang) => (
+                <g key={ang} transform={`rotate(${ang} 60 60)`}>
+                  <polygon
+                    points="60,8 62.5,11 60,14 57.5,11"
+                    fill={frameObj.ringColor}
+                    stroke="#ffffff"
+                    strokeWidth="0.9"
+                  />
+                </g>
+              ))}
+            </g>
+          )}
+
+          {/* 9. Sapphire Ocean & Jade Dragon (Scalloped Waves / Scales) */}
+          {(frameObj.id === 'frame-sapphire-ocean' || frameObj.id === 'frame-jade-dragon') && (
+            <g>
+              {Array.from({ length: 16 }).map((_, i) => (
+                <g key={i} transform={`rotate(${i * 22.5} 60 60)`}>
+                  <path
+                    d="M 52 15 Q 60 6 68 15"
+                    fill="none"
+                    stroke={frameObj.ringColor}
+                    strokeWidth="2"
+                  />
+                  <path
+                    d="M 54 11 Q 60 2 66 11"
+                    fill="none"
+                    stroke={i % 2 === 0 ? '#ffffff' : frameObj.ringColor}
+                    strokeWidth="1.4"
+                    opacity="0.85"
+                  />
+                  {frameObj.id === 'frame-jade-dragon' && (
+                    <circle cx="60" cy="9" r="1.4" fill={frameObj.ringColor} />
+                  )}
+                </g>
+              ))}
+            </g>
+          )}
+
+          {/* 10. Solar Eclipse, Starlight Nova, Infinity Omega (Sunburst Rays) */}
+          {(frameObj.id === 'frame-solar-eclipse' ||
+            frameObj.id === 'frame-starlight-nova' ||
+            frameObj.id === 'frame-infinity-omega') && (
+            <g>
+              {Array.from({ length: 24 }).map((_, i) => {
+                const isLong = i % 2 === 0;
+                const isCardinal = i % 6 === 0;
+                return (
+                  <g key={i} transform={`rotate(${i * 15} 60 60)`}>
+                    <line
+                      x1="60"
+                      y1="15"
+                      x2="60"
+                      y2={isLong ? '2' : '8'}
+                      stroke={isCardinal && !isLong ? '#ffffff' : frameObj.ringColor}
+                      strokeWidth={isLong ? '2.2' : '1.6'}
+                      strokeLinecap="round"
+                    />
+                  </g>
+                );
+              })}
+              {[0, 90, 180, 270].map((ang) => (
+                <g key={ang} transform={`rotate(${ang} 60 60)`}>
+                  <line
+                    x1="60"
+                    y1="5"
+                    x2="60"
+                    y2="1"
+                    stroke="#ffffff"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                  />
+                </g>
+              ))}
+            </g>
+          )}
         </svg>
       )}
 

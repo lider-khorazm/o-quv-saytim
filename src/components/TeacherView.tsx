@@ -17,7 +17,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import { Teacher, Student, TeacherNotification, TestSubmissionResult, CourseStage } from '../types';
-import { updateTeacherGroupName } from '../services/storage';
+import { updateTeacherGroupName, getStudents, saveStudents } from '../services/storage';
 import { AvatarBadge } from './AvatarBadge';
 import { AuroraMascot } from './AuroraMascot';
 
@@ -50,6 +50,25 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
   const [selectedSubmissionForReview, setSelectedSubmissionForReview] = useState<TestSubmissionResult | null>(null);
   const [isEditingGroupName, setIsEditingGroupName] = useState(false);
   const [groupNameInput, setGroupNameInput] = useState(teacher.groupName || `${teacher.name} Guruhi`);
+  const [passwordStatusMsg, setPasswordStatusMsg] = useState<string | null>(null);
+
+  const handleResetStudentPassword = (student: Student) => {
+    const newPass = prompt(`${student.name} ${student.surname} uchun yangi parolni kiriting (kamida 6 ta belgi):`);
+    if (newPass === null) return;
+    if (newPass.trim().length < 6) {
+      setPasswordStatusMsg("Xato: Parol kamida 6 ta belgidan iborat bo'lishi kerak!");
+      setTimeout(() => setPasswordStatusMsg(null), 3000);
+      return;
+    }
+    const allStudents = getStudents();
+    const target = allStudents.find((s) => s.id === student.id);
+    if (target) {
+      target.password = newPass.trim();
+      saveStudents(allStudents);
+      setPasswordStatusMsg('Parol yangilandi');
+      setTimeout(() => setPasswordStatusMsg(null), 3000);
+    }
+  };
 
   const handleSaveGroupName = () => {
     if (!groupNameInput.trim()) return;
@@ -326,6 +345,12 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
                 </button>
               </div>
 
+              {passwordStatusMsg && (
+                <div className="p-3 rounded-2xl bg-[#3ee6c4]/15 border border-[#3ee6c4]/40 text-[#3ee6c4] text-xs font-bold">
+                  {passwordStatusMsg}
+                </div>
+              )}
+
               {myStudents.length === 0 ? (
                 <div className="aurora-card p-12 text-center space-y-3">
                   <AuroraMascot mood="waving" size={96} className="mx-auto" />
@@ -436,7 +461,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
                         </div>
 
                         {/* Action buttons */}
-                        <div className="mt-4 pt-3 border-t border-white/10 grid grid-cols-3 gap-2">
+                        <div className="mt-4 pt-3 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-2">
                           <button
                             onClick={() => onOpenCreateTestModal(student, student.stageCompletedPendingTest || student.stage)}
                             className={`duo-btn px-2 py-2 text-xs ${
@@ -453,6 +478,14 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
                           >
                             <MessageSquare className="w-3.5 h-3.5 text-[#3ee6c4]" />
                             <span>Xabar</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleResetStudentPassword(student)}
+                            className="duo-btn duo-btn-surface px-2 py-2 text-xs text-[#ffd23f]"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" />
+                            <span>Parolni tiklash</span>
                           </button>
 
                           <button
