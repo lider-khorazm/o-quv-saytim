@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 360" role="img" aria-labelledby="title desc">
+  <title id="title">CMDbek — DevMaster Academy AI ustoz</title>
+  <desc id="desc">O‘zbek do‘ppisi kiygan, neon rangli terminal ko‘rinishidagi quvnoq robot yordamchi.</desc>
+  <defs>
+    <linearGradient id="body" x1="45" y1="70" x2="270" y2="320" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff6b86"/><stop offset=".55" stop-color="#ff8a3d"/><stop offset="1" stop-color="#ffd23f"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="65" y1="100" x2="260" y2="280" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3ee6c4"/><stop offset="1" stop-color="#b6f03c"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="38" y1="24" x2="290" y2="336" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#21152f"/><stop offset="1" stop-color="#0a0912"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="16" result="blur"/><feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+  <ellipse cx="160" cy="183" rx="125" ry="145" fill="#ff6b86" opacity=".18" filter="url(#glow)"/>
+  <g stroke="#080712" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Antenna -->
+    <path d="M160 45V70" stroke="#3ee6c4" stroke-width="8"/>
+    <circle cx="160" cy="38" r="11" fill="#b6f03c" stroke-width="4"/>
+    <!-- Cap -->
+    <path d="M91 96c0-38 27-61 69-61s69 23 69 61" fill="#171322" stroke-width="6"/>
+    <path d="M92 88h136v13H92z" fill="#fff4ec" stroke-width="4"/>
+    <path d="M160 47c12 14 12 23 0 33-12-10-12-19 0-33Z" fill="none" stroke="#fff4ec" stroke-width="3"/>
+    <circle cx="126" cy="66" r="5" fill="none" stroke="#fff4ec" stroke-width="3"/>
+    <circle cx="194" cy="66" r="5" fill="none" stroke="#fff4ec" stroke-width="3"/>
+    <!-- Body -->
+    <rect x="55" y="91" width="210" height="220" rx="72" fill="url(#body)" stroke-width="8"/>
+    <!-- Side arms -->
+    <path d="M56 185c-27 4-36 28-23 51" fill="none" stroke="#ff6b86" stroke-width="15"/>
+    <circle cx="32" cy="242" r="12" fill="#ffd23f" stroke-width="4"/>
+    <path d="M264 185c27 4 36 28 23 51" fill="none" stroke="#ff8a3d" stroke-width="15"/>
+    <circle cx="288" cy="242" r="12" fill="#ffd23f" stroke-width="4"/>
+    <!-- Terminal screen -->
+    <rect x="76" y="126" width="168" height="133" rx="25" fill="url(#bg)" stroke="url(#rim)" stroke-width="6"/>
+    <path d="M78 157h164" stroke="#3ee6c4" stroke-width="2" opacity=".45"/>
+    <circle cx="98" cy="143" r="5" fill="#ff6b86" stroke="none"/>
+    <circle cx="115" cy="143" r="5" fill="#ffd23f" stroke="none"/>
+    <circle cx="132" cy="143" r="5" fill="#b6f03c" stroke="none"/>
+    <!-- Eyes -->
+    <rect x="107" y="177" width="29" height="37" rx="14" fill="#3ee6c4" stroke="none"/>
+    <rect x="184" y="177" width="29" height="37" rx="14" fill="#3ee6c4" stroke="none"/>
+    <circle cx="116" cy="186" r="5" fill="#fff" stroke="none"/>
+    <circle cx="193" cy="186" r="5" fill="#fff" stroke="none"/>
+    <!-- Smile -->
+    <path d="M139 222c10 14 32 14 42 0" fill="none" stroke="#3ee6c4" stroke-width="6"/>
+    <!-- Little feet -->
+    <path d="M119 310v18m82-18v18" stroke="#cc2f50" stroke-width="12"/>
+    <ellipse cx="112" cy="336" rx="23" ry="10" fill="#ffd23f" stroke-width="4"/>
+    <ellipse cx="208" cy="336" rx="23" ry="10" fill="#ffd23f" stroke-width="4"/>
+  </g>
+  <text x="160" y="285" text-anchor="middle" fill="#b6f03c" font-family="monospace" font-size="13" font-weight="700">salom, dasturchi!_</text>
+</svg>
